@@ -18,12 +18,14 @@ if ! command -v tmux &> /dev/null; then
         pacman -S --noconfirm tmux
     elif [[ "$(uname)" == "Linux" ]]; then
         if command -v apt-get &> /dev/null; then
-            echo "This script will attempt to install tmux and ncurses dev library using apt-get. Sudo password may be required."
+            echo "This script will attempt to install tmux using apt-get. For ncurses dev library, please install manually after this script finishes if compilation fails."
+        echo "Suggested command: sudo apt-get install -y libncurses-dev"
         sudo apt-get update
-        sudo apt-get install -y tmux libncurses-dev
+        sudo apt-get install -y tmux
         elif command -v yum &> /dev/null; then
-            echo "This script will attempt to install tmux and ncurses dev library using yum. Sudo password may be required."
-            sudo yum install -y tmux ncurses-devel
+            echo "This script will attempt to install tmux using yum. For ncurses dev library, please install manually after this script finishes if compilation fails."
+            echo "Suggested command: sudo yum install -y ncurses-devel"
+            sudo yum install -y tmux
         else
             echo "Could not find apt-get or yum. Please install tmux manually."
             exit 1
