@@ -99,6 +99,12 @@ int start_ui(const char* git_log_filepath) {
     int active_window = 0;
     int ch;
 
+    draw_border(left_win, (active_window == 0) ? 8 : 7);
+    draw_border(right_win, (active_window == 1) ? 8 : 7);
+    print_lines(left_win, lines, num_lines, top_line, highlight, height, width / 2);
+    wrefresh(right_win);
+    doupdate();
+
     while ((ch = getch()) != 'q') {
         if (active_window == 0) {
             switch (ch) {
@@ -134,6 +140,7 @@ int start_ui(const char* git_log_filepath) {
         draw_border(right_win, (active_window == 1) ? 8 : 7);
         print_lines(left_win, lines, num_lines, top_line, highlight, height, width / 2);
         wrefresh(right_win);
+        doupdate();
     }
 
     for (int i = 0; i < num_lines; ++i) {
