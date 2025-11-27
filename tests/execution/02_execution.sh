@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR=$(dirname "$0")/..
+BASE_DIR=$(dirname "$0")/../..
 cd "$BASE_DIR" || exit 1
 
 GREEN='\033[0;32m'
@@ -18,13 +18,18 @@ fi
 
 echo -n "  [1/1] Running gitscope.sh execution test... "
 
-COLUMNS=80 LINES=24 timeout 1s script -q /dev/null ./$BUILD_SCRIPT > /dev/null 2>&1
+PATH="$PATH" COLUMNS=80 LINES=24 timeout 1s script -q /dev/null ./$BUILD_SCRIPT > /dev/null 2>&1
 
-if [ $? -eq 124 ]; then
+EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 124 ]; then
     echo -e "${GREEN}PASS${NC}"
+elif [ "$EXIT_CODE" -eq 0 ]; then
+    echo -e "${RED}FAIL${NC}"
+    echo "    - '$BUILD_SCRIPT' execution failed: exited with 0 (expected 124 for ncurses UI). This might indicate the UI did not start correctly."
+    exit 1
 else
     echo -e "${RED}FAIL${NC}"
-    echo "    - '$BUILD_SCRIPT' execution failed unexpectedly or did not launch ncurses UI. Exit code: $?."
+    echo "    - '$BUILD_SCRIPT' execution failed unexpectedly. Exit code: $EXIT_CODE."
     exit 1
 fi
 

@@ -10,7 +10,7 @@ echo "--- Running all tests ---"
 
 FAILURES=0
 
-for test_script in tests/test_*.sh; do
+for test_script in $(find . -type f -name '??_*.sh' | sort); do
     if [ -x "$test_script" ]; then
         "$test_script"
         if [ $? -ne 0 ]; then
