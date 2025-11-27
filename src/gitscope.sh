@@ -12,5 +12,8 @@ save_current_pwd
 show_logo
 
 if [ "$#" -eq 0 ]; then
-    "$PROJECT_ROOT/src/lib/ui"
+    GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
+    git --no-pager log --pretty=format:"%H|%an|%ad|%s" > "$GIT_LOG_FILE"
+    
+    "$PROJECT_ROOT/src/lib/ui" "$GIT_LOG_FILE"
 fi

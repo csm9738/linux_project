@@ -1,8 +1,6 @@
 CC = gcc
-CFLAGS = -Wall
-LDFLAGS = -lncurses
-TARGET = src/lib/ui
-SOURCES = src/core/ui.c
+CFLAGS = -Wall -Isrc/core
+SOURCES = src/core/ui.c src/core/parser.c
 
 all: $(TARGET)
 
