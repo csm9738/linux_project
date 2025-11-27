@@ -131,6 +131,8 @@ int start_ui(const char* git_log_filepath) {
                 break;
         }
 
+
+
         if (active_window == 0) {
             switch (ch) {
                 case KEY_UP: case 'k':
@@ -156,6 +158,8 @@ int start_ui(const char* git_log_filepath) {
                     break;
             }
         }
+
+
     }
 
 end_loop:
