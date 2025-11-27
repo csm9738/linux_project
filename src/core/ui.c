@@ -5,8 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-void start_ui(const char* git_log_filepath) {
-    initscr();
+int start_ui(const char* git_log_filepath) {
+    if (initscr() == NULL) {
+        fprintf(stderr, "Failed to initialize ncurses.\n");
+        return 1;
+    }
     clear();
     cbreak();
     noecho();
@@ -18,7 +21,7 @@ void start_ui(const char* git_log_filepath) {
     if (width < 10) {
         endwin();
         printf("Terminal is too small.\n");
-        return;
+        return 1;
     }
 
     refresh();
@@ -45,13 +48,14 @@ void start_ui(const char* git_log_filepath) {
             mvwprintw(left_win, y, 1, "%.*s", (width / 2) - 2, commits[i].subject);
             y++;
         }
-        free_commits(commits); // 메모리 해제
+        free_commits(commits);
     }
     wrefresh(left_win);
 
     getch();
 
     endwin();
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -59,6 +63,5 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <git_log_filepath>\n", argv[0]);
         return 1;
     }
-    start_ui(argv[1]);
-    return 0;
+    return start_ui(argv[1]);
 }

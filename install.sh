@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# --- tmux 설치 확인 ---
 if ! command -v tmux &> /dev/null; then
     echo "tmux is not installed. Attempting to install..."
     
@@ -31,18 +32,26 @@ if ! command -v tmux &> /dev/null; then
         echo "Unsupported OS. Please install tmux manually."
         exit 1
     fi
-
-    if ! command -v tmux &> /dev/null; then
-        echo "tmux installation failed. Please install it manually."
-        exit 1
-    fi
     echo "tmux installed successfully."
 else
     echo "tmux is already installed."
 fi
 
+# --- 빌드 및 준비 (Sudo 불필요) ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
+
+echo "Creating necessary directories..."
+mkdir -p "$PROJECT_ROOT/build"
+mkdir -p "$PROJECT_ROOT/src/lib"
+
+echo "Building C code..."
+gcc -Wall -Isrc/core -o "$PROJECT_ROOT/src/lib/ui" "$PROJECT_ROOT/src/core/ui.c" "$PROJECT_ROOT/src/core/parser.c" -lncurses
+if [ $? -ne 0 ]; then
+    echo "C code compilation failed."
+    exit 1
+fi
+
 GITSCORPE_SRC_SH="$PROJECT_ROOT/src/gitscope.sh"
 GITSCORPE_BUILD_SH="$PROJECT_ROOT/build/gitscope.sh"
 
@@ -51,17 +60,9 @@ cp "$GITSCORPE_SRC_SH" "$GITSCORPE_BUILD_SH"
 sed -i.bak 's|source "$(dirname "$0")/modules/utils.sh"|source "$(dirname "$0")/../src/modules/utils.sh"|g' "$GITSCORPE_BUILD_SH"
 chmod +x "$GITSCORPE_BUILD_SH"
 
-INSTALL_PATH="/usr/local/bin/gitscope"
-
-echo "Creating symlink to $INSTALL_PATH..."
-if [ -L "$INSTALL_PATH" ]; then
-    echo "Symlink already exists. Removing old one."
-    sudo rm "$INSTALL_PATH"
-elif [ -f "$INSTALL_PATH" ]; then
-    echo "A file already exists at $INSTALL_PATH. Please remove it first."
-    exit 1
-fi
-
-sudo ln -s "$GITSCORPE_BUILD_SH" "$INSTALL_PATH"
-
-echo "Installation complete! You can now run 'gitscope' from anywhere."
+echo ""
+echo "Build successful!"
+echo ""
+echo "To make 'gitscope' command available everywhere, please run the following command manually:"
+echo "sudo ln -sf \"$GITSCORPE_BUILD_SH\" /usr/local/bin/gitscope"
+echo ""
