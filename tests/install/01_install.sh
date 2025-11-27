@@ -15,7 +15,7 @@ mkdir -p build src/lib
 echo -e "${GREEN}DONE${NC}"
 
 echo -n "  [2/5] Compiling C code... "
-gcc -Wall -Isrc/core -o src/lib/ui src/core/ui.c src/core/parser.c -lncurses
+gcc -Wall -Isrc/core -o src/lib/ui src/core/ui.c -lncurses
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}PASS${NC}"
 else
@@ -43,7 +43,7 @@ else
 fi
 
 echo -n "  [5/5] Verifying final files... "
-BUILD_SCRIPT="build/gitscope.sh"
+BUILD_SCRIPT="./build/gitscope.sh"
 C_BINARY="src/lib/ui"
 if [ -f "$BUILD_SCRIPT" ] && [ -f "$C_BINARY" ] && grep -q 'source "$(dirname "$0")/../src/modules/utils.sh"' "$BUILD_SCRIPT"; then
     echo -e "${GREEN}PASS${NC}"
