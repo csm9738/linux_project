@@ -39,10 +39,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-GITSCORPE_SH="$PROJECT_ROOT/src/gitscope.sh"
+GITSCORPE_SRC_SH="$PROJECT_ROOT/src/gitscope.sh"
+GITSCORPE_BUILD_SH="$PROJECT_ROOT/build/gitscope.sh"
 
-echo "Making gitscope.sh executable..."
-chmod +x "$GITSCORPE_SH"
+echo "Creating executable script at $GITSCORPE_BUILD_SH..."
+cp "$GITSCORPE_SRC_SH" "$GITSCORPE_BUILD_SH"
+sed -i.bak 's|source "$(dirname "$0")/modules/utils.sh"|source "$(dirname "$0")/../src/modules/utils.sh"|g' "$GITSCORPE_BUILD_SH"
+chmod +x "$GITSCORPE_BUILD_SH"
 
 INSTALL_PATH="/usr/local/bin/gitscope"
 
@@ -55,6 +58,6 @@ elif [ -f "$INSTALL_PATH" ]; then
     exit 1
 fi
 
-sudo ln -s "$GITSCORPE_SH" "$INSTALL_PATH"
+sudo ln -s "$GITSCORPE_BUILD_SH" "$INSTALL_PATH"
 
 echo "Installation complete! You can now run 'gitscope' from anywhere."
