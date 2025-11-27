@@ -11,6 +11,10 @@ if ! command -v tmux &> /dev/null; then
         fi
         echo "Installing tmux with Homebrew..."
         brew install tmux
+    elif [[ "$(uname)" =~ (CYGWIN|MINGW|MSYS) ]]; then
+        echo "Windows (Git Bash/MSYS) environment detected."
+        echo "Attempting to install tmux using pacman..."
+        pacman -S --noconfirm tmux
     elif [[ "$(uname)" == "Linux" ]]; then
         if command -v apt-get &> /dev/null; then
             echo "This script will attempt to install tmux using apt-get. Sudo password may be required."
