@@ -44,6 +44,12 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 GITSCORPE_SRC_SH="$PROJECT_ROOT/src/gitscope.sh"
+
+# C 코드 컴파일
+echo "Building C code..."
+mkdir -p "$PROJECT_ROOT/build"
+gcc -Wall -Isrc/core -o "$PROJECT_ROOT/src/lib/ui" "$PROJECT_ROOT/src/core/ui.c" "$PROJECT_ROOT/src/core/parser.c" -lncurses
+
 GITSCORPE_BUILD_SH="$PROJECT_ROOT/build/gitscope.sh"
 
 echo "Creating executable script at $GITSCORPE_BUILD_SH..."
