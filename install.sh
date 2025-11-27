@@ -48,7 +48,7 @@ mkdir -p "$PROJECT_ROOT/build"
 mkdir -p "$PROJECT_ROOT/src/lib"
 
 echo "Building C code..."
-gcc -Wall -Isrc/core -o "$PROJECT_ROOT/src/lib/ui" "$PROJECT_ROOT/src/core/ui.c" "$PROJECT_ROOT/src/core/parser.c" -lncurses
+gcc -Wall -Isrc/core -o "$PROJECT_ROOT/src/lib/ui" "$PROJECT_ROOT/src/core/ui.c" -lncurses
 if [ $? -ne 0 ]; then
     echo "C code compilation failed."
     exit 1
