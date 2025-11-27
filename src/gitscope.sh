@@ -13,7 +13,7 @@ show_logo
 
 if [ "$#" -eq 0 ]; then
     GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
-    git --no-pager log --pretty=format:"%H|%an|%ad|%s" > "$GIT_LOG_FILE"
+    git --no-pager log --graph --all --pretty=format:'%h -%d%s (%ar) <%an>' > "$GIT_LOG_FILE"
     
     "$PROJECT_ROOT/src/lib/ui" "$GIT_LOG_FILE"
 fi
