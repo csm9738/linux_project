@@ -1,28 +1,59 @@
 #!/bin/bash
 
-source "$(dirname "$0")/modules/utils.sh"
+# GitScope - Main Entry Point
 
-save_current_pwd() {
-    mkdir -p "$PROJECT_ROOT/build"
-    pwd > "$PROJECT_ROOT/build/last_run_dir.txt"
+# --- Configuration ---
+UI_BINARY="src/lib/ui"
+GIT_LOG_ARGS=(
+    --graph 
+    --all 
+    --oneline 
+    --decorate 
+    "--pretty=format:%h - %an, %ar : %s"
+)
+TMP_LOG_FILE=$(mktemp)
+
+# --- Cleanup Function ---
+# Ensures the temporary log file is removed on exit
+cleanup() {
+    rm -f "$TMP_LOG_FILE"
 }
+trap cleanup EXIT
 
-save_current_pwd
+# --- Main Logic ---
 
-show_logo
-
-if [ "$#" -eq 0 ]; then
-    GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
-    git --no-pager log --graph --all --pretty=format:'%h -%d%s (%ar) <%an>' > "$GIT_LOG_FILE"
-    
-    "$PROJECT_ROOT/src/lib/ui" "$GIT_LOG_FILE"
-    EXIT_CODE=$?
-
-    if [ "$EXIT_CODE" -eq 2 ]; then
-        clear
-        ./tests/run_tests.sh
-    elif [ "$EXIT_CODE" -eq 3 ]; then
-        clear
-        ./src/modules/commit.sh
-    fi
+# 1. Check if UI binary exists
+if [ ! -f "$UI_BINARY" ]; then
+    echo "Error: UI binary not found at '$UI_BINARY'."
+    echo "Please run 'make' to compile the project."
+    exit 1
 fi
+
+# 2. Generate the git log and store it in a temporary file
+git log "${GIT_LOG_ARGS[@]}" > "$TMP_LOG_FILE"
+if [ ! -s "$TMP_LOG_FILE" ]; then
+    echo "Error: Failed to generate git log or git history is empty."
+    exit 1
+fi
+
+# 3. Run the ncurses UI with the log file
+"$UI_BINARY" "$TMP_LOG_FILE"
+exit_code=$?
+
+# 4. Handle exit codes from the UI
+case $exit_code in
+    0)
+        echo "GitScope exited normally."
+        ;;
+    2)
+        echo "Switching to Test Runner..."
+        # ./scripts/run_tests.sh
+        ;;
+    3)
+        echo "Switching to Commit Tool..."
+        # ./src/modules/commit.sh
+        ;;
+    *)
+        echo "GitScope exited with an unknown code: $exit_code"
+        ;;
+esac

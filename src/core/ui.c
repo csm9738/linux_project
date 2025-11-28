@@ -3,6 +3,78 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+void show_popup(const char* content); // Forward declaration
+
+void run_preview(const char* commit_line) {
+    char hash[41]; // Git hash is typically 40 chars + null terminator
+    
+    // Find the start of the hash (skip potential graph characters like '|', '*', ' ', '/')
+    const char* hash_start = commit_line;
+    while (*hash_start != '\0' && (*hash_start == '*' || *hash_start == '|' || *hash_start == ' ' || *hash_start == '/')) {
+        hash_start++;
+    }
+
+    if (sscanf(hash_start, "%40s", hash) != 1) {
+        show_popup("Could not parse commit hash.");
+        return;
+    }
+
+    char command[512];
+    snprintf(command, sizeof(command), "./src/modules/preview.sh %s", hash);
+
+    FILE* fp = popen(command, "r");
+    if (fp == NULL) {
+        show_popup("Failed to run preview script. Make sure it is executable.");
+        return;
+    }
+
+    char buffer[16384]; // Increased buffer size for larger previews
+    size_t n = fread(buffer, 1, sizeof(buffer) - 1, fp);
+    buffer[n] = '\0';
+    pclose(fp);
+
+    if (n == 0) {
+        show_popup("Preview script returned no output.");
+        return;
+    }
+
+    show_popup(buffer);
+}
+
+void show_popup(const char* content) {
+    int height, width;
+    getmaxyx(stdscr, height, width);
+
+    int p_height = height * 0.8;
+    int p_width = width * 0.8;
+    int p_y = (height - p_height) / 2;
+    int p_x = (width - p_width) / 2;
+
+    WINDOW *popup_win = newwin(p_height, p_width, p_y, p_x);
+    box(popup_win, 0, 0);
+    
+    // Print content line by line
+    int max_lines = p_height - 2;
+    int max_cols = p_width - 2;
+    char *dup_content = strdup(content);
+    char *line = strtok(dup_content, "\n");
+    int line_num = 0;
+    while(line != NULL && line_num < max_lines) {
+        mvwprintw(popup_win, line_num + 1, 1, "%.*s", max_cols, line);
+        line = strtok(NULL, "\n");
+        line_num++;
+    }
+    free(dup_content);
+
+    wrefresh(popup_win);
+    
+    // Wait for any key to close
+    getch();
+
+    delwin(popup_win);
+}
 
 void draw_border(WINDOW *win, int color_pair) {
     wattron(win, COLOR_PAIR(color_pair));
@@ -87,7 +159,7 @@ int start_ui(const char* git_log_filepath) {
     }
     fclose(fp);
 
-    const char *right_menu_items[] = {"Customize Tree", "Run Tests", "Commit"};
+    const char *right_menu_items[] = {"Preview", "Customize Tree", "Run Tests", "Commit"};
     int num_right_menu_items = sizeof(right_menu_items) / sizeof(char*);
 
     int left_highlight = 0;
@@ -119,11 +191,15 @@ int start_ui(const char* git_log_filepath) {
                 active_window = 1;
                 break;
             case '\n':
-                if (active_window == 1) {
-                    if (right_highlight == 1) {
+                if (active_window == 1) { // Right panel is active
+                    if (right_highlight == 0) { // "Preview" selected
+                        run_preview(lines[left_highlight]);
+                    } else if (right_highlight == 1) { // "Customize Tree" selected
+                        // This might have a different exit code or action later
+                    } else if (right_highlight == 2) { // "Run Tests" selected
                         exit_code = 2;
                         goto end_loop;
-                    } else if (right_highlight == 2) {
+                    } else if (right_highlight == 3) { // "Commit" selected
                         exit_code = 3;
                         goto end_loop;
                     }
