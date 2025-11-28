@@ -10,14 +10,69 @@ void draw_border(WINDOW *win, int color_pair) {
     wattroff(win, COLOR_PAIR(color_pair));
 }
 
+
+void parse_and_print_ansi_line(WINDOW *win, const char* line, int y, int win_width) {
+    wmove(win, y, 1);
+    int current_attrs = A_NORMAL;
+
+    for (int i = 0; line[i] != '\0'; i++) {
+        if (getcurx(win) >= win_width - 1) break;
+
+        if (line[i] == '\x1b' && line[i+1] == '[') {
+            i += 2;
+            int attr = A_NORMAL;
+            int color_pair = 0;
+
+            char code_buffer[16];
+            int j = 0;
+            while (line[i] != 'm' && j < 15) {
+                code_buffer[j++] = line[i++];
+            }
+            code_buffer[j] = '\0';
+
+            if (j == 0) { // ESC[m
+                wattroff(win, current_attrs);
+                current_attrs = A_NORMAL;
+                continue;
+            }
+
+            char* code = strtok(code_buffer, ";");
+            while(code != NULL) {
+                int value = atoi(code);
+                if (value == 0) {
+                    attr = A_NORMAL;
+                    color_pair = 0;
+                } else if (value == 1) {
+                    attr |= A_BOLD;
+                } else if (value >= 30 && value <= 37) {
+                    color_pair = value - 30 + 1;
+                }
+                code = strtok(NULL, ";");
+            }
+
+            wattroff(win, current_attrs);
+            current_attrs = attr | COLOR_PAIR(color_pair);
+            wattron(win, current_attrs);
+            
+            continue;
+        }
+        waddch(win, line[i]);
+    }
+    wattroff(win, current_attrs);
+}
+
+
 void print_left_panel(WINDOW *win, char **lines, int num_lines, int top_line, int highlight_line, int win_height, int win_width) {
     werase(win);
     for (int i = 0; i < win_height - 2; ++i) {
-        int current_line = top_line + i;
-        if (current_line >= num_lines) break;
-        if (current_line == highlight_line) wattron(win, A_REVERSE);
-        mvwprintw(win, i + 1, 1, "%.*s", win_width - 2, lines[current_line]);
-        if (current_line == highlight_line) wattroff(win, A_REVERSE);
+        int current_line_index = top_line + i;
+        if (current_line_index >= num_lines) break;
+        
+        if (current_line_index == highlight_line) wattron(win, A_REVERSE);
+        
+        parse_and_print_ansi_line(win, lines[current_line_index], i + 1, win_width);
+        
+        if (current_line_index == highlight_line) wattroff(win, A_REVERSE);
     }
 }
 
@@ -43,8 +98,16 @@ int start_ui(const char* git_log_filepath) {
 
     start_color();
     use_default_colors();
-    init_pair(1, COLOR_WHITE, -1);
-    init_pair(2, COLOR_CYAN, -1); // 하늘색으로 변경
+    init_pair(1, COLOR_BLACK, -1);
+    init_pair(2, COLOR_RED, -1);
+    init_pair(3, COLOR_GREEN, -1);
+    init_pair(4, COLOR_YELLOW, -1);
+    init_pair(5, COLOR_BLUE, -1);
+    init_pair(6, COLOR_MAGENTA, -1);
+    init_pair(7, COLOR_CYAN, -1);
+    init_pair(8, COLOR_WHITE, -1);
+    init_pair(9, COLOR_CYAN, -1);
+    init_pair(10, COLOR_WHITE, -1);
 
     clear();
     cbreak();
@@ -65,11 +128,7 @@ int start_ui(const char* git_log_filepath) {
     
     FILE *fp = fopen(git_log_filepath, "r");
     if (fp == NULL) {
-        mvwprintw(left_win, 1, 1, "Failed to open git log file.");
-        wrefresh(left_win);
-        getch();
-        endwin();
-        return 1;
+        endwin(); return 1;
     }
 
     int capacity = 20;
@@ -101,8 +160,10 @@ int start_ui(const char* git_log_filepath) {
         print_left_panel(left_win, lines, num_lines, top_line, (active_window == 0) ? left_highlight : -1, height, width / 2);
         print_right_panel(right_win, right_menu_items, num_right_menu_items, (active_window == 1) ? right_highlight : -1);
         
-        draw_border(left_win, (active_window == 0) ? 2 : 1);
-        draw_border(right_win, (active_window == 1) ? 2 : 1);
+
+        
+        draw_border(left_win, (active_window == 0) ? 9 : 10);
+        draw_border(right_win, (active_window == 1) ? 9 : 10);
         
         wnoutrefresh(left_win);
         wnoutrefresh(right_win);
@@ -112,27 +173,21 @@ int start_ui(const char* git_log_filepath) {
         if (ch == 'q') break;
 
         switch (ch) {
-            case KEY_LEFT: case 'h':
-                active_window = 0;
-                break;
-            case KEY_RIGHT: case 'l':
-                active_window = 1;
-                break;
+            case KEY_LEFT: case 'h': active_window = 0; break;
+            case KEY_RIGHT: case 'l': active_window = 1; break;
             case '\n':
                 if (active_window == 1) {
-                    if (right_highlight == 1) {
-                        exit_code = 2;
-                        goto end_loop;
-                    } else if (right_highlight == 2) {
-                        exit_code = 3;
-                        goto end_loop;
-                    }
+                    if (right_highlight == 1) { exit_code = 2; goto end_loop; }
+                    else if (right_highlight == 2) { exit_code = 3; goto end_loop; }
                 }
                 break;
         }
 
 
 
+
+=======
+>>>>>>> feature/tree
         if (active_window == 0) {
             switch (ch) {
                 case KEY_UP: case 'k':
@@ -148,7 +203,11 @@ int start_ui(const char* git_log_filepath) {
                     }
                     break;
             }
+
         } else { // active_window == 1
+=======
+        } else {
+>>>>>>> feature/tree
             switch (ch) {
                 case KEY_UP: case 'k':
                     if (right_highlight > 0) right_highlight--;
@@ -160,6 +219,9 @@ int start_ui(const char* git_log_filepath) {
         }
 
 
+
+=======
+>>>>>>> feature/tree
     }
 
 end_loop:

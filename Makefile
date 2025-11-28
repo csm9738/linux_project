@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Isrc/core
-SOURCES = src/core/ui.c
+SOURCES = src/core/ui.c src/core/parser.c src/core/parser.c src/core/parser.c
 
 all: $(TARGET)
 
