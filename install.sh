@@ -48,7 +48,7 @@ mkdir -p "$PROJECT_ROOT/build"
 mkdir -p "$PROJECT_ROOT/src/lib"
 
 echo "Building C code..."
-gcc -Wall -Isrc/core -o "$PROJECT_ROOT/src/lib/ui" "$PROJECT_ROOT/src/core/ui.c" "$PROJECT_ROOT/src/core/parser.c" -lncurses
+gcc -Wall -Isrc/core -o "$PROJECT_ROOT/build/ui" "$PROJECT_ROOT/src/core/ui.c" "$PROJECT_ROOT/src/core/parser.c" -lncurses
 if [ $? -ne 0 ]; then
     echo "C code compilation failed."
     exit 1
@@ -61,6 +61,9 @@ echo "Creating executable script at $GITSCORPE_BUILD_SH..."
 cp "$GITSCORPE_SRC_SH" "$GITSCORPE_BUILD_SH"
 sed -i.bak 's|source "$(dirname "$0")/modules/utils.sh"|source "$(dirname "$0")/../src/modules/utils.sh"|g' "$GITSCORPE_BUILD_SH"
 chmod +x "$GITSCORPE_BUILD_SH"
+
+echo "Setting permissions for module scripts..."
+chmod +x "$PROJECT_ROOT/src/modules/"*.sh
 
 echo ""
 echo "Build successful!"
