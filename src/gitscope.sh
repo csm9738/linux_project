@@ -1,28 +1,54 @@
 #!/bin/bash
 
-source "$(dirname "$0")/modules/utils.sh"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-save_current_pwd() {
-    mkdir -p "$PROJECT_ROOT/build"
-    pwd > "$PROJECT_ROOT/build/last_run_dir.txt"
-}
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-save_current_pwd
+source "$PROJECT_ROOT/src/modules/utils.sh"
 
 show_logo
+shift
 
-if [ "$#" -eq 0 ]; then
-    GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
-    git --no-pager log --graph --all --color=always --pretty=format:'%C(auto)%h -%d%s %Cgreen(%ar) %C(bold blue)<%an>%Creset' > "$GIT_LOG_FILE"
-    
-    "$PROJECT_ROOT/src/lib/ui" "$GIT_LOG_FILE"
-    EXIT_CODE=$?
+case $1 in
+    customize)
+        "$PROJECT_ROOT/src/modules/customize_tree.sh"
+        ;;
+    test)
+        "$PROJECT_ROOT/tests/run_tests.sh"
+        ;;
+    commit)
+        "$PROJECT_ROOT/src/modules/commit.sh"
+        ;;
+    *)
+        GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
+        mkdir -p "$PROJECT_ROOT/build"
+        # include color and decoration so saved log contains ANSI escapes for branches
+        git --no-pager log --graph --all --decorate=short --color=always > "$GIT_LOG_FILE"
+        
+        CONFIG_FILE="$PROJECT_ROOT/config/gitscope.conf"
+        if [ -f "$CONFIG_FILE" ]; then
+            source "$CONFIG_FILE"
+            export LINE_STYLE
+        fi
 
-    if [ "$EXIT_CODE" -eq 2 ]; then
-        clear
-        ./tests/run_tests.sh
-    elif [ "$EXIT_CODE" -eq 3 ]; then
-        clear
-        ./src/modules/commit.sh
-    fi
-fi
+        "$PROJECT_ROOT/build/ui" "$GIT_LOG_FILE" "$PROJECT_ROOT"
+        EXIT_CODE=$?
+
+        if [ "$EXIT_CODE" -eq 2 ]; then
+            clear
+            "$PROJECT_ROOT/tests/run_tests.sh"
+        elif [ "$EXIT_CODE" -eq 3 ]; then
+            clear
+            "$PROJECT_ROOT/src/modules/commit.sh"
+        elif [ "$EXIT_CODE" -eq 4 ]; then
+            clear
+            exec "$0"
+        fi
+        ;;
+esac

@@ -2,6 +2,12 @@
 
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$MODULE_DIR")")"
+
+CONFIG_FILE="$PROJECT_ROOT/config/gitscope.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+fi
+
 VERSION_FILE="$PROJECT_ROOT/config/version"
 
 function show_logo() {
