@@ -12,10 +12,10 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 source "$PROJECT_ROOT/src/modules/utils.sh"
 
-COMMAND=$1
+show_logo
 shift
 
-case $COMMAND in
+case $1 in
     customize)
         "$PROJECT_ROOT/src/modules/customize_tree.sh"
         ;;
@@ -28,7 +28,8 @@ case $COMMAND in
     *)
         GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
         mkdir -p "$PROJECT_ROOT/build"
-        git --no-pager log --graph --all > "$GIT_LOG_FILE"
+        # include color and decoration so saved log contains ANSI escapes for branches
+        git --no-pager log --graph --all --decorate=short --color=always > "$GIT_LOG_FILE"
         
         CONFIG_FILE="$PROJECT_ROOT/config/gitscope.conf"
         if [ -f "$CONFIG_FILE" ]; then

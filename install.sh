@@ -38,7 +38,8 @@ mkdir -p "$SRC_DIR/core"
 mkdir -p "$SRC_DIR/lib"
 
 echo "Building C code..."
-gcc -Wall -I"$SRC_DIR/core" -o "$BUILD_DIR/ui" "$SRC_DIR/core/ui.c" -lncurses
+make
+# gcc -Wall -I"$SRC_DIR/core" -o "$BUILD_DIR/ui" "$SRC_DIR/core/ui.c" -lncurses
 if [ $? -ne 0 ]; then
     echo "C code compilation failed."
     exit 1

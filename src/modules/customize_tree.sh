@@ -1,30 +1,39 @@
 #!/bin/bash
 
-CONFIG_DIR="$(dirname "$0")/../../config"
-CONFIG_FILE="$CONFIG_DIR/gitscope.conf"
-
-echo "--- Customize Tree Settings ---"
-
-echo "Select Line Style:"
-echo "  1) ASCII (e.g., |\-)"
-echo "  2) Unicode (e.g., ─┬└)"
-read -p "Enter number (1-2): " line_style_num
-
-LINE_STYLE=""
-if [ "$line_style_num" -eq 1 ]; then
-    LINE_STYLE="ascii"
-    echo "Line style set to ASCII"
-elif [ "$line_style_num" -eq 2 ]; then
-    LINE_STYLE="unicode"
-    echo "Line style set to Unicode"
-else
-    echo "Invalid selection. Defaulting to ASCII."
-    LINE_STYLE="ascii"
+CURRENT_STYLE=$(git config --global --get gitscope.style)
+if [ -z "$CURRENT_STYLE" ]; then
+    CURRENT_STYLE="ascii"
 fi
 
-mkdir -p "$CONFIG_DIR"
-echo "LINE_STYLE=$LINE_STYLE" > "$CONFIG_FILE"
-echo "Settings saved to $CONFIG_FILE"
+echo "--- Customize Tree Style ---"
+echo "Current style: $CURRENT_STYLE"
+echo ""
+echo "Select new style:"
+echo "  1) ascii"
+echo "  2) unicode (single line)"
+echo "  3) unicode-double (double line)"
+echo "  4) unicode-rounded (rounded corners)"
+echo ""
+read -p "Enter number (1-4): " SELECTION
 
-read -p "Press Enter to return to GitScope..."
-exit 0
+case $SELECTION in
+    1)
+        git config --global gitscope.style "ascii"
+        echo "Tree style set to ascii."
+        ;;
+    2)
+        git config --global gitscope.style "unicode"
+        echo "Tree style set to unicode (single line)."
+        ;;
+    3)
+        git config --global gitscope.style "unicode-double"
+        echo "Tree style set to unicode-double (double line)."
+        ;;
+    4)
+        git config --global gitscope.style "unicode-rounded"
+        echo "Tree style set to unicode-rounded (rounded corners)."
+        ;;
+    *)
+        echo "Invalid selection. No changes made."
+        ;;
+esac
