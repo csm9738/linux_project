@@ -1132,7 +1132,6 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     }
 
 end_loop:
-    /* disable mouse motion reporting before exit to restore normal terminal state */
     printf("\033[?1002l\033[?1006l"); fflush(stdout);
     free_log_lines(loglines, num_lines);
     free(lines);
@@ -1141,6 +1140,6 @@ end_loop:
 }
 
 int main(int argc, char *argv[]) {
-    // if (argc < 3) return 1;
+    if (argc < 3) return 1;
     return start_ui(argv[1], argv[2]);
 }
