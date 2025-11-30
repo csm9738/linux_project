@@ -99,6 +99,39 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                 break;
             case KEY_LEFT: case 'h': active_window = 0; break;
             case KEY_RIGHT: case 'l': active_window = 1; break;
+            case 'g':
+                if (active_window == 0) {
+                    int saved_to = resizing ? 20 : -1;
+                    timeout(200);
+                    int next = getch();
+                    timeout(saved_to);
+                    if (next == 'g') {
+                        int target = find_next_commit(lines, num_lines, 0, 1);
+                        if (target >= 0) { highlight_line = target; top_line = highlight_line; }
+                    } else {
+                        if (next != ERR) ungetch(next);
+                    }
+                }
+                break;
+            case 23:
+                {
+                    int saved_to = resizing ? 20 : -1;
+                    timeout(200);
+                    int nxt = getch();
+                    timeout(saved_to);
+                    if (nxt == 'w' || nxt == 'W' || nxt == 23) {
+                        active_window = 1 - active_window;
+                    } else {
+                        if (nxt != ERR) ungetch(nxt);
+                    }
+                }
+                break;
+            case 'G':
+                if (active_window == 0) {
+                    int target = find_next_commit(lines, num_lines, num_lines - 1, -1);
+                    if (target >= 0) { highlight_line = target; if (highlight_line >= top_line + height - 2) top_line = highlight_line - (height - 3); }
+                }
+                break;
             case '\n':
                 if (active_window == 1) {
                     if (current_screen == MAIN_SCREEN) {
