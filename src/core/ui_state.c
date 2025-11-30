@@ -324,3 +324,120 @@ void save_branch_palette_to_config(const char* project_root) {
     }
     save_setting(project_root, "BRANCH_PALETTE_COLORS", buf);
 }
+
+char **get_commit_diff_lines(const char *project_root, const char *hash, int *out_count) {
+    if (!hash || !project_root) { if (out_count) *out_count = 0; return NULL; }
+    char cmd[4096];
+    snprintf(cmd, sizeof(cmd), "git -C '%s' show --color=always %s", project_root, hash);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) { if (out_count) *out_count = 0; return NULL; }
+    char **lines = NULL;
+    int cap = 0, cnt = 0;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), fp)) {
+        size_t len = strlen(buf);
+        char *ln = malloc(len + 1);
+        if (!ln) break;
+        memcpy(ln, buf, len + 1);
+        if (cnt + 1 > cap) {
+            int newcap = cap == 0 ? 64 : cap * 2;
+            char **tmp = realloc(lines, newcap * sizeof(char*));
+            if (!tmp) { free(ln); break; }
+            lines = tmp; cap = newcap;
+        }
+        lines[cnt++] = ln;
+    }
+    pclose(fp);
+    if (out_count) *out_count = cnt;
+    return lines;
+}
+
+void free_string_lines(char **lines, int count) {
+    if (!lines) return;
+    for (int i = 0; i < count; ++i) free(lines[i]);
+    free(lines);
+}
+
+char **get_commit_changed_files(const char *project_root, const char *hash, int *out_count) {
+    if (!hash || !project_root) { if (out_count) *out_count = 0; return NULL; }
+    char cmd[4096];
+    snprintf(cmd, sizeof(cmd), "git -C '%s' show --name-only --pretty=format:'' %s", project_root, hash);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) { if (out_count) *out_count = 0; return NULL; }
+    char **lines = NULL; int cap = 0, cnt = 0; char buf[4096];
+    while (fgets(buf, sizeof(buf), fp)) {
+        size_t len = strlen(buf);
+        while (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r')) buf[--len] = '\0';
+        if (len == 0) continue;
+        char *ln = malloc(len + 1);
+        if (!ln) break;
+        memcpy(ln, buf, len + 1);
+        if (cnt + 1 > cap) {
+            int newcap = cap == 0 ? 64 : cap * 2;
+            char **tmp = realloc(lines, newcap * sizeof(char*));
+            if (!tmp) { free(ln); break; }
+            lines = tmp; cap = newcap;
+        }
+        lines[cnt++] = ln;
+    }
+    pclose(fp);
+    if (out_count) *out_count = cnt;
+    return lines;
+}
+
+char **get_commit_file_diff_lines(const char *project_root, const char *hash, const char *path, int *out_count) {
+    if (!hash || !project_root || !path) { if (out_count) *out_count = 0; return NULL; }
+    char cmd[8192];
+    snprintf(cmd, sizeof(cmd), "git -C '%s' show --color=always %s -- '%s'", project_root, hash, path);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) { if (out_count) *out_count = 0; return NULL; }
+    char **lines = NULL; int cap = 0, cnt = 0; char buf[8192];
+    while (fgets(buf, sizeof(buf), fp)) {
+        size_t len = strlen(buf);
+        char *ln = malloc(len + 1);
+        if (!ln) break;
+        memcpy(ln, buf, len + 1);
+        if (cnt + 1 > cap) {
+            int newcap = cap == 0 ? 64 : cap * 2;
+            char **tmp = realloc(lines, newcap * sizeof(char*));
+            if (!tmp) { free(ln); break; }
+            lines = tmp; cap = newcap;
+        }
+        lines[cnt++] = ln;
+    }
+    pclose(fp);
+    if (out_count) *out_count = cnt;
+    return lines;
+}
+
+void get_commit_file_char_stats(const char *project_root, const char *hash, const char *path, int *out_added_chars, int *out_removed_chars) {
+    if (out_added_chars) *out_added_chars = 0;
+    if (out_removed_chars) *out_removed_chars = 0;
+    if (!project_root || !hash || !path) return;
+    char cmd[8192];
+    snprintf(cmd, sizeof(cmd), "git -C '%s' show --no-color %s -- '%s'", project_root, hash, path);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) return;
+    char buf[8192];
+    int added = 0, removed = 0;
+    while (fgets(buf, sizeof(buf), fp)) {
+        if (buf[0] == '\0') continue;
+        if (strncmp(buf, "diff --git", 10) == 0) continue;
+        if (strncmp(buf, "index ", 6) == 0) continue;
+        if (strncmp(buf, "--- ", 4) == 0) continue;
+        if (strncmp(buf, "+++ ", 4) == 0) continue;
+        if (strncmp(buf, "@@", 2) == 0) continue;
+        if (buf[0] == '+') {
+            size_t len = strlen(buf);
+            if (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r')) len--;
+            if (len >= 1) added += (int)(len - 1);
+        } else if (buf[0] == '-') {
+            size_t len = strlen(buf);
+            if (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r')) len--;
+            if (len >= 1) removed += (int)(len - 1);
+        }
+    }
+    pclose(fp);
+    if (out_added_chars) *out_added_chars = added;
+    if (out_removed_chars) *out_removed_chars = removed;
+}

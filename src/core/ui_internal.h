@@ -35,5 +35,11 @@ void print_left_panel(WINDOW *win, char **lines, int num_lines, int top_line, in
 void print_right_panel(WINDOW *win, int highlight_item, int win_height, int win_width);
 void print_customize_menu(WINDOW *win, int highlight_item, int win_height, int win_width, const char* current_style, const char* current_border_color, const char* current_tree_color, const char* current_branch_palette);
 void print_palette_editor(WINDOW *win, int highlight_item, int win_height, int win_width);
+char **get_commit_diff_lines(const char *project_root, const char *hash, int *out_count);
+void free_string_lines(char **lines, int count);
+void print_preview(WINDOW *win, char **lines, int num_lines, int top_line, int win_height, int win_width, const char *header, int is_list, int selected_index, const char *project_root, const char *commit_hash);
+void get_commit_file_char_stats(const char *project_root, const char *hash, const char *path, int *out_added_chars, int *out_removed_chars);
+char **get_commit_changed_files(const char *project_root, const char *hash, int *out_count);
+char **get_commit_file_diff_lines(const char *project_root, const char *hash, const char *path, int *out_count);
 
 #endif

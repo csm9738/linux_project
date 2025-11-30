@@ -48,3 +48,31 @@ void print_palette_editor(WINDOW *win, int highlight_item, int win_height, int w
     mvwprintw(win, base_y + back_idx, 3, "[Back] (saves)");
     if (highlight_item == back_idx) wattroff(win, A_REVERSE);
 }
+
+void print_preview(WINDOW *win, char **lines, int num_lines, int top_line, int win_height, int win_width, const char *header, int is_list, int selected_index, const char *project_root, const char *commit_hash) {
+    werase(win);
+    draw_border(win);
+    if (header) {
+        wattron(win, A_BOLD);
+        mvwprintw(win, 1, 2, "%s", header);
+        wattroff(win, A_BOLD);
+    }
+    int content_start = 2;
+    int content_h = win_height - content_start - 0;
+    for (int i = 0; i < content_h; ++i) {
+        int idx = top_line + i;
+        if (idx >= num_lines) break;
+        int y = content_start + i;
+        if (is_list) {
+            int added_chars = 0, removed_chars = 0;
+            if (project_root && commit_hash && lines[idx]) {
+                get_commit_file_char_stats(project_root, commit_hash, lines[idx], &added_chars, &removed_chars);
+            }
+            if (idx == selected_index) wattron(win, A_REVERSE);
+            mvwprintw(win, y, 2, "%s  (+%d, -%d)", lines[idx], added_chars, removed_chars);
+            if (idx == selected_index) wattroff(win, A_REVERSE);
+        } else {
+            parse_and_print_ansi_line(win, lines[idx], y, win_width);
+        }
+    }
+}
