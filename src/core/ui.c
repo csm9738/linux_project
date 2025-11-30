@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <limits.h>
+#include <stdbool.h>
 
 #define HIGHLIGHT_PAIR 11
 #define BORDER_PAIR 12
@@ -665,7 +666,8 @@ static void print_customize_menu(WINDOW *win, int highlight_item, int win_height
     char edit_palette_line[128];
     snprintf(edit_palette_line, sizeof(edit_palette_line), "Edit Palette Colors");
 
-    const char *menu_items[] = { style_line, border_line, tree_line, palette_line, edit_palette_line, "[Back]" };
+    /* indicate that returning also saves settings */
+    const char *menu_items[] = { style_line, border_line, tree_line, palette_line, edit_palette_line, "[Back] (saves)" };
     int num_items = sizeof(menu_items) / sizeof(char*);
 
     for (int i = 0; i < num_items; ++i) {
@@ -683,10 +685,47 @@ static void save_setting(const char* project_root, const char* key, const char* 
     char config_file_path[1024];
     snprintf(config_file_path, sizeof(config_file_path), "%s/config/gitscope.conf", project_root);
     
-    FILE* fp = fopen(config_file_path, "w");
-    if (fp != NULL) {
-        fprintf(fp, "export %s=%s\n", key, value);
-        fclose(fp);
+    /* Read existing config (if any), remove any existing line for this key,
+       then write back all other lines and append the new export line.
+       This prevents overwriting unrelated settings when saving a single key. */
+    char tmp_path[1200];
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", config_file_path);
+
+    FILE *in = fopen(config_file_path, "r");
+    FILE *out = fopen(tmp_path, "w");
+    if (out) {
+        if (in) {
+            char line[2048];
+            size_t keylen = strlen(key);
+            while (fgets(line, sizeof(line), in)) {
+                if (strncmp(line, "export ", 7) == 0) {
+                    /* parse name after 'export ' up to '=' */
+                    char *eq = strchr(line + 7, '=');
+                    if (eq) {
+                        size_t namelen = (size_t)(eq - (line + 7));
+                        if (namelen == keylen && strncmp(line + 7, key, keylen) == 0) {
+                            /* skip this line (we'll write updated value below) */
+                            continue;
+                        }
+                    }
+                }
+                fputs(line, out);
+            }
+            fclose(in);
+        }
+
+        fprintf(out, "export %s=%s\n", key, value);
+        fclose(out);
+
+        /* atomically replace config file */
+        rename(tmp_path, config_file_path);
+    } else {
+        /* fallback: write directly if temp couldn't be created */
+        FILE* fp = fopen(config_file_path, "w");
+        if (fp != NULL) {
+            fprintf(fp, "export %s=%s\n", key, value);
+            fclose(fp);
+        }
     }
 }
 
@@ -712,7 +751,7 @@ static void print_palette_editor(WINDOW *win, int highlight_item, int win_height
     }
     int back_idx = branch_palette_len;
     if (highlight_item == back_idx) wattron(win, A_REVERSE);
-    mvwprintw(win, base_y + back_idx, 3, "[Back]");
+    mvwprintw(win, base_y + back_idx, 3, "[Back] (saves)");
     if (highlight_item == back_idx) wattroff(win, A_REVERSE);
 }
 
@@ -782,9 +821,17 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
 
     int height, width;
     getmaxyx(stdscr, height, width);
-    
-    WINDOW *left_win = newwin(height, width / 2, 0, 0);
-    WINDOW *right_win = newwin(height, width / 2, 0, width / 2);
+
+    int divider_x = width / 2;
+    bool resizing = false;
+    MEVENT mevent;
+
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+    mouseinterval(0);
+    printf("\033[?1002h\033[?1006h"); fflush(stdout);
+
+    WINDOW *left_win = newwin(height, divider_x, 0, 0);
+    WINDOW *right_win = newwin(height, width - divider_x, 0, divider_x);
     
     int num_lines = 0;
     LogLine *loglines = parse_log_file(git_log_filepath, &num_lines);
@@ -810,13 +857,13 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     }
 
     while (1) {
-        print_left_panel(left_win, lines, num_lines, top_line, (active_window == 0) ? highlight_line : -1, height, width / 2, current_line_style, current_tree_color, current_branch_palette);
+        print_left_panel(left_win, lines, num_lines, top_line, (active_window == 0) ? highlight_line : -1, height, divider_x, current_line_style, current_tree_color, current_branch_palette);
         if (current_screen == MAIN_SCREEN) {
-            print_right_panel(right_win, (active_window == 1) ? right_highlight : -1, height, width / 2);
+            print_right_panel(right_win, (active_window == 1) ? right_highlight : -1, height, width - divider_x);
         } else if (current_screen == CUSTOMIZE_SCREEN) {
-            print_customize_menu(right_win, (active_window == 1) ? right_highlight : -1, height, width / 2, current_line_style, current_border_color, current_tree_color, current_branch_palette);
+            print_customize_menu(right_win, (active_window == 1) ? right_highlight : -1, height, width - divider_x, current_line_style, current_border_color, current_tree_color, current_branch_palette);
         } else if (current_screen == PALETTE_EDIT_SCREEN) {
-            print_palette_editor(right_win, (active_window == 1) ? right_highlight : -1, height, width / 2);
+            print_palette_editor(right_win, (active_window == 1) ? right_highlight : -1, height, width - divider_x);
         }
 
         if (active_window == 0) {
@@ -839,16 +886,56 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
         wnoutrefresh(right_win);
         doupdate();
         
+        if (resizing) timeout(20); else timeout(-1);
         ch = getch();
         switch (ch) {
+            case KEY_MOUSE: {
+                if (getmouse(&mevent) == OK) {
+                    int mx = mevent.x;
+                    const int DRAG_THRESHOLD = 2;
+
+                    if (mevent.bstate & BUTTON1_PRESSED) {
+                        if (abs(mx - divider_x) <= DRAG_THRESHOLD) {
+                            resizing = true;
+                        }
+                    }
+
+                    if (resizing) {
+                        int new_div = mx;
+                        if (new_div < 10) new_div = 10;
+                        if (new_div > width - 10) new_div = width - 10;
+                        if (new_div != divider_x) {
+                            divider_x = new_div;
+                            delwin(left_win);
+                            delwin(right_win);
+                            left_win = newwin(height, divider_x, 0, 0);
+                            right_win = newwin(height, width - divider_x, 0, divider_x);
+                            keypad(left_win, TRUE);
+                            keypad(right_win, TRUE);
+                            touchwin(left_win);
+                            touchwin(right_win);
+                            print_left_panel(left_win, lines, num_lines, top_line, (active_window == 0) ? highlight_line : -1, height, divider_x, current_line_style, current_tree_color, current_branch_palette);
+                            if (current_screen == MAIN_SCREEN) print_right_panel(right_win, (active_window == 1) ? right_highlight : -1, height, width - divider_x);
+                            else if (current_screen == CUSTOMIZE_SCREEN) print_customize_menu(right_win, (active_window == 1) ? right_highlight : -1, height, width - divider_x, current_line_style, current_border_color, current_tree_color, current_branch_palette);
+                            else if (current_screen == PALETTE_EDIT_SCREEN) print_palette_editor(right_win, (active_window == 1) ? right_highlight : -1, height, width - divider_x);
+                            wnoutrefresh(left_win);
+                            wnoutrefresh(right_win);
+                            doupdate();
+                        }
+                    }
+
+                    if (mevent.bstate & BUTTON1_RELEASED) {
+                        resizing = false;
+                        timeout(-1);
+                    }
+                }
+            }
+            break;
             case KEY_UP: case 'k':
                 if (active_window == 0) {
                     if (highlight_line > 0) highlight_line--;
                     if (highlight_line < top_line) top_line = highlight_line;
                 } else {
-                    /* palette editor handles its own up/down navigation later
-                     * to avoid double-handling we skip modifying right_highlight
-                     * here when the palette editor is active. */
                     if (current_screen != PALETTE_EDIT_SCREEN) {
                         if (right_highlight > 0) right_highlight--;
                     }
@@ -859,9 +946,6 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                     if (highlight_line < num_lines - 1) highlight_line++;
                     if (highlight_line >= top_line + height - 2) top_line = highlight_line - (height - 3);
                 } else {
-                    /* skip generic menu navigation when palette editor is active;
-                     * palette editor navigation is handled in the PALETTE_EDIT_SCREEN
-                     * block below to provide the correct bounds. */
                     if (current_screen != PALETTE_EDIT_SCREEN) {
                         int max_menu = (current_screen == MAIN_SCREEN) ? 2 : 5;
                         if (right_highlight < max_menu) right_highlight++;
@@ -886,10 +970,6 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                             exit_code = 3; goto end_loop;
                         }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
-                        /* Only handle customize-menu actions here. If we're on the
-                         * PALETTE_EDIT_SCREEN, Enter should be handled by the
-                         * PALETTE_EDIT_SCREEN block below, so we skip handling it
-                         * here when current_screen == PALETTE_EDIT_SCREEN. */
                         if (right_highlight == 0) {
                             const char *styles[] = {"ascii","unicode","unicode-double","unicode-rounded"};
                             int ns = sizeof(styles) / sizeof(styles[0]);
@@ -941,13 +1021,13 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                             for (int pi = 0; pi < np; ++pi) if (strcmp(current_branch_palette, palette_options[pi]) == 0) { pidx = pi; break; }
                             int pnext = (pidx + 1) % np;
                             strncpy(current_branch_palette, palette_options[pnext], sizeof(current_branch_palette) - 1);
-                            current_branch_palette[sizeof(current_branch_palette) - 1] = '\0';
-                            save_setting(project_root, "BRANCH_PALETTE", current_branch_palette);
+                                current_branch_palette[sizeof(current_branch_palette) - 1] = '\0';
+                                    save_setting(project_root, "BRANCH_PALETTE", current_branch_palette);
                             update_branch_color_map(current_branch_palette, current_tree_color);
                         } else if (right_highlight == 4) {
                             current_screen = PALETTE_EDIT_SCREEN;
                             right_highlight = 0;
-                        } else if (right_highlight == 5) { current_screen = MAIN_SCREEN; right_highlight = 0; }
+                                } else if (right_highlight == 5) { current_screen = MAIN_SCREEN; right_highlight = 0; }
                     } else {
                         /* other screens (like PALETTE_EDIT_SCREEN) handle Enter elsewhere */
                     }
@@ -985,6 +1065,8 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     }
 
 end_loop:
+    /* disable mouse motion reporting before exit to restore normal terminal state */
+    printf("\033[?1002l\033[?1006l"); fflush(stdout);
     free_log_lines(loglines, num_lines);
     free(lines);
     endwin();
