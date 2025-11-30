@@ -203,6 +203,59 @@ static int utf8_char_len(unsigned char c) {
     return 1;
 }
 
+/* Return 1 if this line's graph prefix contains a commit glyph ('*','o', or '●').
+   We only inspect the prefix (before alnum or '('). */
+static int is_commit_line(const char *s) {
+    if (!s) return 0;
+    int pfx_len = 0;
+    while (s[pfx_len] != '\0') {
+        if (s[pfx_len] == '\x1b' && s[pfx_len+1] == '[') {
+            pfx_len += 2;
+            while (s[pfx_len] != '\0' && s[pfx_len] != 'm') pfx_len++;
+            if (s[pfx_len] == 'm') pfx_len++;
+            continue;
+        }
+        char c = s[pfx_len];
+        if (c == ' ' || c == '|' || c == '*' || c == '/' || c == '\\' || c == '+' || c == '-' || c == 'o') {
+            pfx_len++; continue;
+        }
+        if (isalnum((unsigned char)c) || c == '(') break;
+        break;
+    }
+
+    /* scan prefix bytes for '*' or 'o' or UTF-8 black circle (0xE2 0x97 0x8F) */
+    for (int i = 0; i < pfx_len; ++i) {
+        unsigned char uc = (unsigned char)s[i];
+        if (uc == (unsigned char)'*' || uc == (unsigned char)'o') return 1;
+        if (i + 2 < pfx_len) {
+            if ((unsigned char)s[i] == 0xE2 && (unsigned char)s[i+1] == 0x97 && (unsigned char)s[i+2] == 0x8F) return 1;
+        }
+    }
+    return 0;
+}
+
+/* Find next (dir>0) or previous (dir<0) commit line index starting from start_index.
+   Return start_index if no commit found in the given direction. */
+static int find_next_commit(char **lines, int num_lines, int start_index, int dir) {
+    if (!lines || num_lines <= 0) return -1;
+    /* clamp start_index into valid range */
+    if (start_index < 0) start_index = 0;
+    if (start_index >= num_lines) start_index = num_lines - 1;
+
+    if (dir > 0) {
+        for (int i = start_index; i < num_lines; ++i) {
+            if (is_commit_line(lines[i])) return i;
+        }
+        return -1;
+    } else if (dir < 0) {
+        for (int i = start_index; i >= 0; --i) {
+            if (is_commit_line(lines[i])) return i;
+        }
+        return -1;
+    }
+    return -1;
+}
+
 static char* colorize_graph_prefix_preserve_ansi(const char* src, const char* palette, const char* base_color) {
     if (!src) return NULL;
     size_t n = strlen(src);
@@ -933,8 +986,15 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
             break;
             case KEY_UP: case 'k':
                 if (active_window == 0) {
-                    if (highlight_line > 0) highlight_line--;
-                    if (highlight_line < top_line) top_line = highlight_line;
+                    /* jump to previous commit line */
+                    if (highlight_line > 0) {
+                        int search_start = highlight_line - 1;
+                        int target = find_next_commit(lines, num_lines, search_start, -1);
+                        if (target >= 0 && target != highlight_line) {
+                            highlight_line = target;
+                            if (highlight_line < top_line) top_line = highlight_line;
+                        }
+                    }
                 } else {
                     if (current_screen != PALETTE_EDIT_SCREEN) {
                         if (right_highlight > 0) right_highlight--;
@@ -943,8 +1003,15 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                 break;
             case KEY_DOWN: case 'j':
                 if (active_window == 0) {
-                    if (highlight_line < num_lines - 1) highlight_line++;
-                    if (highlight_line >= top_line + height - 2) top_line = highlight_line - (height - 3);
+                    /* jump to next commit line */
+                    if (highlight_line < num_lines - 1) {
+                        int search_start = highlight_line + 1;
+                        int target = find_next_commit(lines, num_lines, search_start, 1);
+                        if (target >= 0 && target != highlight_line) {
+                            highlight_line = target;
+                            if (highlight_line >= top_line + height - 2) top_line = highlight_line - (height - 3);
+                        }
+                    }
                 } else {
                     if (current_screen != PALETTE_EDIT_SCREEN) {
                         int max_menu = (current_screen == MAIN_SCREEN) ? 2 : 5;
