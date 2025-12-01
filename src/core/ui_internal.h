@@ -13,6 +13,7 @@ extern BranchColorMap branch_color_map[256];
 extern int branch_color_map_count;
 extern char branch_palette_colors[16][16];
 extern int branch_palette_len;
+extern int suspend_heavy_render;
 
 char* expand_tabs(const char* input);
 char* replace_graph_prefix_preserve_ansi(const char* src, int len, const char* line_style);

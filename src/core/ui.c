@@ -449,6 +449,29 @@ void parse_and_print_ansi_line(WINDOW *win, const char* line, int y, int win_wid
 static void print_left_panel(WINDOW *win, char **lines, int num_lines, int top_line, int highlight_line, int win_height, int win_width, const char* line_style, const char* current_tree_color, const char* current_branch_palette) {
     werase(win);
     draw_border(win);
+    if (suspend_heavy_render) {
+        /* Lightweight rendering during resize/drag: avoid ANSI parsing and heavy allocations */
+        int maxw = win_width - 3;
+        for (int i = 0; i < win_height - 2; ++i) {
+            int current_line = top_line + i;
+            if (current_line >= num_lines) break;
+            const char *src = lines[current_line];
+            if (!src) continue;
+            /* expand tabs minimally */
+            char *exp = expand_tabs(src);
+            if (!exp) continue;
+            /* print trimmed plain text */
+            char buf[1024]; buf[0] = '\0';
+            int tocopy = (int)strlen(exp);
+            if (tocopy > maxw) tocopy = maxw;
+            strncpy(buf, exp, tocopy); buf[tocopy] = '\0';
+            if (current_line == highlight_line) wattron(win, A_REVERSE);
+            mvwprintw(win, i + 1, 1, "%s", buf);
+            if (current_line == highlight_line) wattroff(win, A_REVERSE);
+            free(exp);
+        }
+        return;
+    }
     for (int i = 0; i < win_height - 2; ++i) {
         int current_line = top_line + i;
         if (current_line >= num_lines) break;
