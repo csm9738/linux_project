@@ -7,6 +7,7 @@
 #include <locale.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include "ui_commit_input.h" // Include for handle_commit_input
 
 static void build_header(char *buf, size_t sz, LogLine *ln) {
     if (!ln) { if (sz > 0) buf[0] = '\0'; return; }
@@ -67,16 +68,52 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     char **file_diff = NULL; int file_diff_count = 0;
     int preview_mode = 0;
     char header_buf[1024]; header_buf[0] = '\0';
+    char current_commit_message[1024] = ""; // Declare and initialize commit message buffer
+    int commit_type_selected_idx = -1; // -1 initially, 0-4 for types
+    int message_cursor_pos = 0; // For editing the message
+    
+    // Commit type strings for logic, must match print_commit_ui order
+    const char *commit_types_str[] = { "feat", "fix", "docs", "refactor", "test" };
+    int num_commit_types_in_ui = sizeof(commit_types_str) / sizeof(char*);
+
     file_list = get_commit_changed_files(project_root, loglines[highlight_line].hash, &file_list_count);
     build_header(header_buf, sizeof(header_buf), &loglines[highlight_line]);
     while (1) {
         int right_w = width - divider_x;
         print_left_panel(left_win, lines, num_lines, top_line, (active_window == 0) ? highlight_line : -1, height, divider_x, current_line_style, current_tree_color, current_branch_palette);
-        if (current_screen == MAIN_SCREEN) print_right_panel(right_top, (active_window == 1) ? right_highlight : -1, right_top_h, right_w);
-        else if (current_screen == CUSTOMIZE_SCREEN) print_customize_menu(right_top, (active_window == 1) ? right_highlight : -1, right_top_h, right_w, current_line_style, current_border_color, current_tree_color, current_branch_palette);
-        else if (current_screen == PALETTE_EDIT_SCREEN) print_palette_editor(right_top, (active_window == 1) ? right_highlight : -1, right_top_h, right_w);
-        if (preview_mode == 0) print_preview(right_bottom, file_list, file_list_count, preview_top, height - right_top_h, right_w, header_buf, 1, preview_selected, project_root, loglines[highlight_line].hash);
-        else print_preview(right_bottom, file_diff, file_diff_count, preview_top, height - right_top_h, right_w, header_buf, 0, -1, project_root, loglines[highlight_line].hash);
+        
+        // Drawing logic for right_top panel
+        if (current_screen == MAIN_SCREEN) {
+            print_right_panel(right_top, (active_window == 1) ? right_highlight : -1, right_top_h, right_w);
+            curs_set(0); // Hide cursor in main menu
+        }
+        else if (current_screen == CUSTOMIZE_SCREEN) {
+            print_customize_menu(right_top, (active_window == 1) ? right_highlight : -1, right_top_h, right_w, current_line_style, current_border_color, current_tree_color, current_branch_palette);
+            curs_set(0); // Hide cursor in customize menu
+        }
+        else if (current_screen == PALETTE_EDIT_SCREEN) {
+            print_palette_editor(right_top, (active_window == 1) ? right_highlight : -1, right_top_h, right_w);
+            curs_set(0); // Hide cursor in palette editor
+        }
+        else if (current_screen == COMMIT_SCREEN) {
+            // Nothing to draw in right_top if in COMMIT_SCREEN
+        }
+
+        // Drawing logic for right_bottom panel
+        if (current_screen == COMMIT_SCREEN) {
+            print_commit_ui(right_bottom, (active_window == 2) ? right_highlight : -1, current_commit_message);
+            // Manually place cursor for message input
+            if (active_window == 2 && right_highlight == num_commit_types_in_ui) { // message field is at index 5
+                wmove(right_bottom, 3 + num_commit_types_in_ui + 2, 2 + strlen("Commit Message: ") + message_cursor_pos);
+                curs_set(1); // Show cursor
+            } else {
+                curs_set(0); // Hide cursor
+            }
+        } else { // All other screens draw preview in right_bottom
+            if (preview_mode == 0) print_preview(right_bottom, file_list, file_list_count, preview_top, height - right_top_h, right_w, header_buf, 1, preview_selected, project_root, loglines[highlight_line].hash);
+            else print_preview(right_bottom, file_diff, file_diff_count, preview_top, height - right_top_h, right_w, header_buf, 0, -1, project_root, loglines[highlight_line].hash);
+        }
+        
         if (active_window == 0) {
             wattron(left_win, COLOR_PAIR(12) | A_BOLD);
             draw_border(left_win);
@@ -95,6 +132,62 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
         wnoutrefresh(left_win); wnoutrefresh(right_top); wnoutrefresh(right_bottom); doupdate();
         if (resizing) timeout(20); else timeout(-1);
         ch = getch();
+        
+        // Delegate input handling to handle_commit_input if in COMMIT_SCREEN and active_window is 2
+        if (current_screen == COMMIT_SCREEN && active_window == 2) {
+            // Check for general character input and backspace first if message field is highlighted
+            if (right_highlight == num_commit_types_in_ui) { // message field is at index 5
+                if ((ch >= 32 && ch <= 126) || ch == KEY_BACKSPACE || ch == 127) { // Printable ASCII or Backspace
+                    if (ch >= 32 && ch <= 126) { // Printable ASCII
+                        if (message_cursor_pos < sizeof(current_commit_message) - 1) {
+                            current_commit_message[message_cursor_pos] = ch;
+                            message_cursor_pos++;
+                            current_commit_message[message_cursor_pos] = '\0';
+                        }
+                    } else if (ch == KEY_BACKSPACE || ch == 127) { // Backspace
+                        if (message_cursor_pos > 0) {
+                            message_cursor_pos--;
+                            current_commit_message[message_cursor_pos] = '\0';
+                        }
+                    }
+                    // Consume character input, don't pass to handle_commit_input for these
+                    // Except for Enter, which handle_commit_input should process for message field exit.
+                    if (ch != '\n') continue;
+                }
+            }
+
+            // Now, call handle_commit_input for other keys (Enter, ESC, navigation)
+            CommitInputResult commit_input_res = handle_commit_input(ch, &right_highlight, &commit_type_selected_idx, current_commit_message, &message_cursor_pos, num_commit_types_in_ui + 3, num_commit_types_in_ui);
+            if (commit_input_res == UI_STATE_CHANGE_EXIT_COMMIT) {
+                current_screen = MAIN_SCREEN;
+                active_window = 1; right_highlight = 1; // Highlight Commit Changes on return
+                strcpy(current_commit_message, ""); commit_type_selected_idx = -1; message_cursor_pos = 0;
+            } else if (commit_input_res == UI_STATE_CHANGE_COMMIT_PERFORM) {
+                if (commit_type_selected_idx != -1 && strlen(current_commit_message) > 0) {
+                    FILE *fp_type = fopen("/tmp/gitscope_commit_type.tmp", "w");
+                    if (fp_type) {
+                        fprintf(fp_type, "%s", commit_types_str[commit_type_selected_idx]);
+                        fclose(fp_type);
+                    }
+                    FILE *fp_msg = fopen("/tmp/gitscope_commit_message.tmp", "w");
+                    if (fp_msg) {
+                        fprintf(fp_msg, "%s", current_commit_message);
+                        fclose(fp_msg);
+                    }
+                    exit_code = 3; goto end_loop;
+                } else {
+                    // Stay in commit screen, perhaps show an error or move to message input
+                    // For now, reset highlight to first type if type not selected, or stay on Commit button if message empty
+                    if (commit_type_selected_idx == -1) right_highlight = 0; // Highlight first type
+                    else if (strlen(current_commit_message) == 0) right_highlight = num_commit_types_in_ui; // Highlight message field
+                }
+            }
+            // If handle_commit_input processed the input, continue to next loop iteration
+            if (commit_input_res != UI_STATE_NO_CHANGE) {
+                continue; 
+            }
+        }
+        
         switch (ch) {
             case KEY_RESIZE: {
                 int new_h, new_w;
@@ -157,8 +250,14 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                         if (file_diff) { free_string_lines(file_diff, file_diff_count); file_diff = NULL; file_diff_count = 0; }
                         build_header(header_buf, sizeof(header_buf), &loglines[highlight_line]);
                     }
-                } else if (active_window == 1) { if (current_screen != PALETTE_EDIT_SCREEN) { if (right_highlight > 0) right_highlight--; } } else if (active_window == 2) {
-                    if (preview_mode == 0) {
+                } else if (active_window == 1) { // Right top panel (main menu, customize, palette)
+                    if (current_screen != PALETTE_EDIT_SCREEN && current_screen != COMMIT_SCREEN) { // Don't handle here if in commit screen
+                        if (right_highlight > 0) right_highlight--;
+                    }
+                } else if (active_window == 2) { // Right bottom panel (preview or commit UI)
+                    if (current_screen == COMMIT_SCREEN) {
+                        if (right_highlight > 0) right_highlight--;
+                    } else if (preview_mode == 0) {
                         if (preview_selected > 0) { preview_selected--; if (preview_selected < preview_top) preview_top = preview_selected; }
                     } else {
                         if (preview_top > 0) preview_top--;
@@ -177,16 +276,40 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                         if (file_diff) { free_string_lines(file_diff, file_diff_count); file_diff = NULL; file_diff_count = 0; }
                         build_header(header_buf, sizeof(header_buf), &loglines[highlight_line]);
                     }
-                } else if (active_window == 1) { if (current_screen != PALETTE_EDIT_SCREEN) { int max_menu = (current_screen == MAIN_SCREEN) ? 2 : 5; if (right_highlight < max_menu) right_highlight++; } } else if (active_window == 2) {
-                    if (preview_mode == 0) {
+                } else if (active_window == 1) { // Right top panel (main menu, customize, palette)
+                    if (current_screen != PALETTE_EDIT_SCREEN && current_screen != COMMIT_SCREEN) { // Don't handle here if in commit screen
+                        int max_menu = (current_screen == MAIN_SCREEN) ? 3 : 6;
+                        if (right_highlight < max_menu -1) right_highlight++;
+                    }
+                } else if (active_window == 2) { // Right bottom panel (preview or commit UI)
+                    if (current_screen == COMMIT_SCREEN) {
+                        // 5 commit types (0-4), 1 message field (5), 1 Commit button (6), 1 Cancel button (7)
+                        // Max highlight index is 7
+                        if (right_highlight < 7) right_highlight++;
+                    } else if (preview_mode == 0) {
                         if (preview_selected < file_list_count - 1) { preview_selected++; int content_h = height - right_top_h - 2; if (preview_selected >= preview_top + content_h) preview_top = preview_selected - content_h + 1; }
                     } else {
                         int content_h = height - right_top_h - 2; if (preview_top + content_h < file_diff_count) preview_top++;
                     }
                 }
                 break;
-            case KEY_LEFT: case 'h': active_window = 0; break;
-            case KEY_RIGHT: case 'l': active_window = 1; break;
+            case KEY_LEFT: case 'h':
+                if (current_screen == COMMIT_SCREEN) {
+                    current_screen = MAIN_SCREEN;
+                    active_window = 1; // Focus back on main right panel
+                    right_highlight = 1; // Highlight Commit Changes on return
+                    strcpy(current_commit_message, ""); // Clear message
+                    commit_type_selected_idx = -1; // Clear selected type
+                    message_cursor_pos = 0; // Reset cursor
+                } else {
+                    active_window = 0;
+                }
+                break;
+            case KEY_RIGHT: case 'l':
+                if (current_screen != COMMIT_SCREEN) { // Only switch active window if not in commit screen
+                    active_window = 1;
+                }
+                break;
             case 'g':
                 if (active_window == 0) {
                     int saved_to = resizing ? 20 : -1;
@@ -244,7 +367,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                 }
                 break;
             
-            case '\n':
+            case '\n': // Enter key
                 if (active_window == 0) {
                     
                     int commit_idx = highlight_line;
@@ -280,9 +403,16 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                                 keypad(left_win, TRUE); keypad(right_top, TRUE); keypad(right_bottom, TRUE);
                                 touchwin(left_win); touchwin(right_top); touchwin(right_bottom);
                             }
+                        } else if (right_highlight == 1) { // Commit Changes -> now Run Tests action
+                            exit_code = 2; goto end_loop;
+                        } else if (right_highlight == 2) { // Run Tests -> now Commit Changes action
+                            current_screen = COMMIT_SCREEN;
+                            active_window = 2; // Focus on bottom panel for commit UI
+                            right_highlight = 0; // Highlight first commit type
+                            strcpy(current_commit_message, ""); // Clear message on entry
+                            commit_type_selected_idx = -1; // Reset selected type
+                            message_cursor_pos = 0; // Reset cursor
                         }
-                        else if (right_highlight == 1) { exit_code = 2; goto end_loop; }
-                        else if (right_highlight == 2) { exit_code = 3; goto end_loop; }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
                         if (right_highlight == 0) {
                             const char *styles[] = {"ascii","unicode","unicode-double","unicode-rounded"};

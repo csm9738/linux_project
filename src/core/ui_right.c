@@ -7,8 +7,14 @@ void print_right_panel(WINDOW *win, int highlight_item, int win_height, int win_
     werase(win);
     draw_border(win);
     mvwprintw(win, 1, 2, "Welcome to gitscope!");
-    const char *menu_items[] = {"Customize Style", "Run Tests", "Commit"};
-    for (int i = 0; i < 3; ++i) {
+    const char *menu_items[] = {
+        "Customize Style",
+        "Commit Changes",
+        "Run Tests"
+    };
+    int num_items = sizeof(menu_items) / sizeof(char*);
+    
+    for (int i = 0; i < num_items; ++i) {
         if (i == highlight_item) wattron(win, A_REVERSE);
         mvwprintw(win, 3 + i, 3, "%s", menu_items[i]);
         if (i == highlight_item) wattroff(win, A_REVERSE);

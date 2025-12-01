@@ -2,6 +2,7 @@
 #define UI_INTERNAL_H
 
 #include "ui.h"
+#include "ui_commit.h"
 #include <stdio.h>
 #include <ncurses.h>
 #include <limits.h>

@@ -43,9 +43,28 @@ case $1 in
         if [ "$EXIT_CODE" -eq 2 ]; then
             clear
             "$PROJECT_ROOT/tests/run_tests.sh"
+            exec "$0" # Re-launch UI after running tests
         elif [ "$EXIT_CODE" -eq 3 ]; then
             clear
-            "$PROJECT_ROOT/src/modules/commit.sh"
+            # Read commit type and message from temporary files
+            COMMIT_TYPE=""
+            COMMIT_MESSAGE=""
+            if [ -f "/tmp/gitscope_commit_type.tmp" ]; then
+                COMMIT_TYPE=$(cat "/tmp/gitscope_commit_type.tmp")
+                rm "/tmp/gitscope_commit_type.tmp"
+            fi
+            if [ -f "/tmp/gitscope_commit_message.tmp" ]; then
+                COMMIT_MESSAGE=$(cat "/tmp/gitscope_commit_message.tmp")
+                rm "/tmp/gitscope_commit_message.tmp"
+            fi
+            
+            # Execute commit.sh with type and message
+            if [ -n "$COMMIT_TYPE" ] && [ -n "$COMMIT_MESSAGE" ]; then
+                "$PROJECT_ROOT/src/modules/commit.sh" "$COMMIT_TYPE" "$COMMIT_MESSAGE"
+            else
+                echo "Error: Commit type or message not found from UI. Aborting commit."
+            fi
+            exec "$0" # Re-launch UI after commit
         elif [ "$EXIT_CODE" -eq 4 ]; then
             clear
             exec "$0"

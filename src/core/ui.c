@@ -718,7 +718,7 @@ static void print_right_panel(WINDOW *win, int highlight_item, int win_height, i
     draw_border(win);
     mvwprintw(win, 1, 2, "Welcome to gitscope!");
     
-    const char *menu_items[] = {"Customize Style", "Run Tests", "Commit"};
+    const char *menu_items[] = {"Customize tree", "commit", "run test"};
     for (int i = 0; i < 3; ++i) {
         if (i == highlight_item) wattron(win, A_REVERSE);
         mvwprintw(win, 3 + i, 3, "%s", menu_items[i]);
@@ -1037,7 +1037,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                     }
                 } else {
                     if (current_screen != PALETTE_EDIT_SCREEN) {
-                        int max_menu = (current_screen == MAIN_SCREEN) ? 2 : 5;
+                        int max_menu = (current_screen == MAIN_SCREEN) ? 3 : 6;
                         if (right_highlight < max_menu) right_highlight++;
                     }
                 }
@@ -1055,9 +1055,9 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                             current_screen = CUSTOMIZE_SCREEN;
                             right_highlight = 0;
                         } else if (right_highlight == 1) {
-                            exit_code = 2; goto end_loop;
-                        } else if (right_highlight == 2) {
                             exit_code = 3; goto end_loop;
+                        } else if (right_highlight == 2) {
+                            exit_code = 2; goto end_loop;
                         }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
                         if (right_highlight == 0) {

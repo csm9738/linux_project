@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Isrc/core
 LDFLAGS = -lncurses
 TARGET = build/ui
-SOURCES = src/core/ui_main.c src/core/ui_state.c src/core/ui_tree.c src/core/ui_menu.c src/core/parser.c src/main.c
+SOURCES = src/core/ui_main.c src/core/ui_state.c src/core/ui_tree.c src/core/ui_menu.c src/core/parser.c src/core/ui_commit.c src/core/ui_commit_input.c src/main.c
 
 all: $(TARGET)
 
