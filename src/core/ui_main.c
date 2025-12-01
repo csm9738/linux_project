@@ -177,7 +177,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                         if (file_diff) { free_string_lines(file_diff, file_diff_count); file_diff = NULL; file_diff_count = 0; }
                         build_header(header_buf, sizeof(header_buf), &loglines[highlight_line]);
                     }
-                } else if (active_window == 1) { if (current_screen != PALETTE_EDIT_SCREEN) { int max_menu = (current_screen == MAIN_SCREEN) ? 2 : 5; if (right_highlight < max_menu) right_highlight++; } } else if (active_window == 2) {
+                } else if (active_window == 1) { if (current_screen != PALETTE_EDIT_SCREEN) { int max_menu = (current_screen == MAIN_SCREEN) ? 1 : 5; if (right_highlight < max_menu) right_highlight++; } } else if (active_window == 2) {
                     if (preview_mode == 0) {
                         if (preview_selected < file_list_count - 1) { preview_selected++; int content_h = height - right_top_h - 2; if (preview_selected >= preview_top + content_h) preview_top = preview_selected - content_h + 1; }
                     } else {
@@ -266,7 +266,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                         active_window = 2;
                     }
                 } else if (active_window == 1) {
-                    if (current_screen == MAIN_SCREEN) {
+                        if (current_screen == MAIN_SCREEN) {
                         if (right_highlight == 0) {
                             current_screen = CUSTOMIZE_SCREEN; right_highlight = 0;
                             int new_h = height / 2;
@@ -281,8 +281,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                                 touchwin(left_win); touchwin(right_top); touchwin(right_bottom);
                             }
                         }
-                        else if (right_highlight == 1) { exit_code = 2; goto end_loop; }
-                        else if (right_highlight == 2) { exit_code = 3; goto end_loop; }
+                        else if (right_highlight == 1) { exit_code = 3; goto end_loop; }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
                         if (right_highlight == 0) {
                             const char *styles[] = {"ascii","unicode","unicode-double","unicode-rounded"};
