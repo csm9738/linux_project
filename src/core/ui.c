@@ -718,10 +718,10 @@ static void print_right_panel(WINDOW *win, int highlight_item, int win_height, i
     draw_border(win);
     mvwprintw(win, 1, 2, "Welcome to gitscope!");
     
-    const char *menu_items[] = {"Customize Style", "Run Tests", "Commit"};
-    for (int i = 0; i < 3; ++i) {
+    const char *menu_items[] = {"Customize Style", "Commit"};
+    for (int i = 0; i < 2; ++i) {
         if (i == highlight_item) wattron(win, A_REVERSE);
-        mvwprintw(win, 3 + i, 3, "%s", menu_items[i]);
+        mvwprintw(win, 2 + i, 3, "%s", menu_items[i]);
         if (i == highlight_item) wattroff(win, A_REVERSE);
     }
 }
@@ -761,9 +761,6 @@ static void save_setting(const char* project_root, const char* key, const char* 
     char config_file_path[1024];
     snprintf(config_file_path, sizeof(config_file_path), "%s/config/gitscope.conf", project_root);
     
-    /* Read existing config (if any), remove any existing line for this key,
-       then write back all other lines and append the new export line.
-       This prevents overwriting unrelated settings when saving a single key. */
     char tmp_path[1200];
     snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", config_file_path);
 
