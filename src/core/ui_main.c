@@ -96,6 +96,30 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
         if (resizing) timeout(20); else timeout(-1);
         ch = getch();
         switch (ch) {
+            case KEY_RESIZE: {
+                int new_h, new_w;
+                endwin();
+                refresh();
+                clear();
+                getmaxyx(stdscr, new_h, new_w);
+                height = new_h; width = new_w;
+                /* clamp divider and right-top height to sensible ranges */
+                if (divider_x > width - 10) divider_x = width / 2;
+                if (divider_x < 10) divider_x = 10;
+                if (right_top_h > height - 6) right_top_h = height - 6;
+                if (right_top_h < 6) right_top_h = 6;
+                default_right_top_h = height / 6;
+                if (default_right_top_h < 6) default_right_top_h = 6;
+                if (default_right_top_h > height - 6) default_right_top_h = height / 3;
+                delwin(left_win); delwin(right_top); delwin(right_bottom);
+                left_win = newwin(height, divider_x, 0, 0);
+                right_top = newwin(right_top_h, width - divider_x, 0, divider_x);
+                right_bottom = newwin(height - right_top_h, width - divider_x, right_top_h, divider_x);
+                keypad(left_win, TRUE); keypad(right_top, TRUE); keypad(right_bottom, TRUE);
+                touchwin(left_win); touchwin(right_top); touchwin(right_bottom);
+                wnoutrefresh(left_win); wnoutrefresh(right_top); wnoutrefresh(right_bottom); doupdate();
+            }
+            break;
             case KEY_MOUSE: {
                 if (getmouse(&mevent) == OK) {
                     int mx = mevent.x; const int DRAG_THRESHOLD = 2;

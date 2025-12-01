@@ -57,6 +57,31 @@ void print_preview(WINDOW *win, char **lines, int num_lines, int top_line, int w
         mvwprintw(win, 1, 2, "%s", header);
         wattroff(win, A_BOLD);
     }
+    if (suspend_heavy_render) {
+        /* Lightweight preview rendering during resize: no git calls, no ANSI parsing */
+        int content_start = 2;
+        int content_h = win_height - content_start - 0;
+        int maxw = win_width - 4;
+        for (int i = 0; i < content_h; ++i) {
+            int idx = top_line + i;
+            if (idx >= num_lines) break;
+            int y = content_start + i;
+            if (is_list) {
+                if (idx == selected_index) wattron(win, A_REVERSE);
+                /* print filename only, truncated */
+                char buf[1024]; buf[0] = '\0';
+                strncpy(buf, lines[idx] ? lines[idx] : "", maxw); buf[maxw] = '\0';
+                mvwprintw(win, y, 2, "%s", buf);
+                if (idx == selected_index) wattroff(win, A_REVERSE);
+            } else {
+                /* show raw line without parsing */
+                char buf[1024]; buf[0] = '\0';
+                strncpy(buf, lines[idx] ? lines[idx] : "", maxw); buf[maxw] = '\0';
+                mvwprintw(win, y, 2, "%s", buf);
+            }
+        }
+        return;
+    }
     int content_start = 2;
     int content_h = win_height - content_start - 0;
     for (int i = 0; i < content_h; ++i) {

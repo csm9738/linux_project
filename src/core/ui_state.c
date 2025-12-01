@@ -13,6 +13,7 @@ BranchColorMap branch_color_map[256];
 int branch_color_map_count = 0;
 char branch_palette_colors[16][16];
 int branch_palette_len = 0;
+int suspend_heavy_render = 0;
 
 void init_default_branch_palette(void) {
     const char *defaults[] = {"red","green","yellow","blue","magenta","cyan"};
