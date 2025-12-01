@@ -41,8 +41,19 @@ LogLine* parse_log_file(const char* filepath, int* num_lines) {
         lines[*num_lines].author[0] = '\0';
         lines[*num_lines].date[0] = '\0';
 
-        if (strstr(buffer, "commit ") != NULL) {
+        char *cmark = strstr(buffer, "commit ");
+        if (cmark != NULL) {
             lines[*num_lines].is_commit = 1;
+            cmark += 7;
+            char hbuf[64]; int hi = 0;
+            while (cmark[hi] != '\0' && hi < 40 && ((cmark[hi] >= '0' && cmark[hi] <= '9') || (cmark[hi] >= 'a' && cmark[hi] <= 'f') || (cmark[hi] >= 'A' && cmark[hi] <= 'F'))) {
+                hbuf[hi] = cmark[hi]; hi++;
+            }
+            hbuf[hi] = '\0';
+            if (hi > 0) {
+                strncpy(lines[*num_lines].hash, hbuf, sizeof(lines[*num_lines].hash)-1);
+                lines[*num_lines].hash[sizeof(lines[*num_lines].hash)-1] = '\0';
+            }
         }
 
         (*num_lines)++;
