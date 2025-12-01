@@ -8,44 +8,49 @@ while [ -h "$SOURCE" ]; do
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+TOOL_ROOT="$(dirname "$SCRIPT_DIR")"
 
-source "$PROJECT_ROOT/src/modules/utils.sh"
+source "$TOOL_ROOT/src/modules/utils.sh"
 
 show_logo
-shift
+
+# optional first arg: project directory to open
+TARGET_ROOT="$TOOL_ROOT"
+if [ -n "$1" ] && [ -d "$1" ]; then
+    TARGET_ROOT="$(cd "$1" && pwd)"
+    shift
+fi
 
 case $1 in
     customize)
-        "$PROJECT_ROOT/src/modules/customize_tree.sh"
+        "$TOOL_ROOT/src/modules/customize_tree.sh"
         ;;
     test)
-        "$PROJECT_ROOT/tests/run_tests.sh"
+        "$TOOL_ROOT/tests/run_tests.sh"
         ;;
     commit)
-        "$PROJECT_ROOT/src/modules/commit.sh"
+        "$TOOL_ROOT/src/modules/commit.sh"
         ;;
     *)
-        GIT_LOG_FILE="$PROJECT_ROOT/build/git_log.txt"
-        mkdir -p "$PROJECT_ROOT/build"
-        # include color and decoration so saved log contains ANSI escapes for branches
-        git --no-pager log --graph --all --decorate=short --color=always > "$GIT_LOG_FILE"
-        
-        CONFIG_FILE="$PROJECT_ROOT/config/gitscope.conf"
+        GIT_LOG_FILE="$TARGET_ROOT/build/git_log.txt"
+        mkdir -p "$TARGET_ROOT/build"
+        git --no-pager -C "$TARGET_ROOT" log --graph --all --decorate=short --color=always > "$GIT_LOG_FILE"
+
+        CONFIG_FILE="$TARGET_ROOT/config/gitscope.conf"
         if [ -f "$CONFIG_FILE" ]; then
             source "$CONFIG_FILE"
             export LINE_STYLE
         fi
 
-        "$PROJECT_ROOT/build/ui" "$GIT_LOG_FILE" "$PROJECT_ROOT"
+        "$TOOL_ROOT/build/ui" "$GIT_LOG_FILE" "$TARGET_ROOT"
         EXIT_CODE=$?
 
         if [ "$EXIT_CODE" -eq 2 ]; then
             clear
-            "$PROJECT_ROOT/tests/run_tests.sh"
+            "$TOOL_ROOT/tests/run_tests.sh"
         elif [ "$EXIT_CODE" -eq 3 ]; then
             clear
-            "$PROJECT_ROOT/src/modules/commit.sh"
+            "$TOOL_ROOT/src/modules/commit.sh"
         elif [ "$EXIT_CODE" -eq 4 ]; then
             clear
             exec "$0"
