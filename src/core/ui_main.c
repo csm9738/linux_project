@@ -178,18 +178,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
         // Drawing logic for right_bottom panel
         if (current_screen == COMMIT_SCREEN) {
             print_commit_ui(right_bottom, (active_window == 2) ? right_highlight : -1, current_commit_message, dynamic_commit_types, dynamic_num_commit_types, user_commit_types_input);
-            // Manually place cursor for commit type input field
-            if (active_window == 2 && right_highlight == 0) {
-                wmove(right_bottom, 3, 3 + strlen("Types (comma-separated): ") + commit_type_input_cursor_pos);
-                curs_set(1); // Show cursor
-            }
-            // Manually place cursor for message input
-            else if (active_window == 2 && right_highlight == dynamic_num_commit_types + 1) { // message field is at index dynamic_num_commit_types + 1
-                wmove(right_bottom, 5 + dynamic_num_commit_types + 2, 3 + strlen("Commit Message: ") + message_cursor_pos);
-                curs_set(1); // Show cursor
-            } else {
-                curs_set(0); // Hide cursor
-            }
+
         } else { // All other screens draw preview in right_bottom
             if (preview_mode == 0) print_preview(right_bottom, file_list, file_list_count, preview_top, height - right_top_h, right_w, header_buf, 1, preview_selected, project_root, loglines[highlight_line].hash);
             else print_preview(right_bottom, file_diff, file_diff_count, preview_top, height - right_top_h, right_w, header_buf, 0, -1, project_root, loglines[highlight_line].hash);
@@ -305,6 +294,21 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
             // If handle_commit_input processed the input, continue to next loop iteration
             if (commit_input_res != UI_STATE_NO_CHANGE) {
                 continue; 
+            }
+
+            // After processing input and state changes, place cursor if in COMMIT_SCREEN and active_window is 2
+            if (current_screen == COMMIT_SCREEN && active_window == 2) {
+                if (right_highlight == 0) { // Commit types input field
+                    wmove(right_bottom, 3, 3 + strlen("Types (comma-separated): ") + commit_type_input_cursor_pos);
+                    curs_set(1); // Show cursor
+                } else if (right_highlight == dynamic_num_commit_types + 1) { // message field
+                    wmove(right_bottom, 5 + dynamic_num_commit_types + 2, 3 + strlen("Commit Message: ") + message_cursor_pos);
+                    curs_set(1); // Show cursor
+                } else {
+                    curs_set(0); // Hide cursor
+                }
+            } else {
+                curs_set(0); // Hide cursor if not in commit screen or not active window
             }
         }
         
