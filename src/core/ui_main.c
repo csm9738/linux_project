@@ -9,6 +9,56 @@
 #include <stdbool.h>
 #include "ui_commit_input.h" // Include for handle_commit_input
 
+// Function to split a string by a delimiter and return a dynamically allocated array of strings
+// The caller is responsible for freeing the returned char** and each char* inside it.
+static char** split_string(const char* str, const char* delimiter, int* count) {
+    char* s = strdup(str); // Create a mutable copy
+    if (!s) return NULL;
+
+    int capacity = 5; // Initial capacity
+    char** result = (char**)malloc(sizeof(char*) * capacity);
+    if (!result) { free(s); return NULL; }
+    *count = 0;
+
+    char* token = strtok(s, delimiter);
+    while (token != NULL) {
+        if (*count >= capacity) {
+            capacity *= 2;
+            result = (char**)realloc(result, sizeof(char*) * capacity);
+            if (!result) { free(s); return NULL; }
+        }
+        result[*count] = strdup(token);
+        if (!result[*count]) { // Handle allocation failure for token
+            for (int i = 0; i < *count; ++i) free(result[i]);
+            free(result);
+            free(s);
+            return NULL;
+        }
+        (*count)++;
+        token = strtok(NULL, delimiter);
+    }
+    free(s); // Free the mutable copy
+
+    // Reallocate to exact size
+    if (*count > 0) {
+        result = (char**)realloc(result, sizeof(char*) * (*count));
+    } else {
+        free(result); // If no tokens, free the initial allocation
+        result = NULL;
+    }
+    return result;
+}
+
+// Free the dynamically allocated array of strings
+static void free_string_array(char** arr, int count) {
+    if (arr) {
+        for (int i = 0; i < count; ++i) {
+            free(arr[i]);
+        }
+        free(arr);
+    }
+}
+
 static void build_header(char *buf, size_t sz, LogLine *ln) {
     if (!ln) { if (sz > 0) buf[0] = '\0'; return; }
     char sh[8] = "";
@@ -72,9 +122,10 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     int commit_type_selected_idx = -1; // -1 initially, 0-4 for types
     int message_cursor_pos = 0; // For editing the message
     
-    // Commit type strings for logic, must match print_commit_ui order
-    const char *commit_types_str[] = { "feat", "fix", "docs", "refactor", "test" };
-    int num_commit_types_in_ui = sizeof(commit_types_str) / sizeof(char*);
+    // Variables for dynamic commit type handling
+    char user_commit_types_input[256] = ""; // Buffer to store raw user input
+    char **dynamic_commit_types = NULL; // Array of strings for parsed types
+    int dynamic_num_commit_types = 0; // Count of parsed types
 
     file_list = get_commit_changed_files(project_root, loglines[highlight_line].hash, &file_list_count);
     build_header(header_buf, sizeof(header_buf), &loglines[highlight_line]);
@@ -101,10 +152,10 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
 
         // Drawing logic for right_bottom panel
         if (current_screen == COMMIT_SCREEN) {
-            print_commit_ui(right_bottom, (active_window == 2) ? right_highlight : -1, current_commit_message);
+            print_commit_ui(right_bottom, (active_window == 2) ? right_highlight : -1, current_commit_message, dynamic_commit_types, dynamic_num_commit_types);
             // Manually place cursor for message input
-            if (active_window == 2 && right_highlight == num_commit_types_in_ui) { // message field is at index 5
-                wmove(right_bottom, 3 + num_commit_types_in_ui + 2, 2 + strlen("Commit Message: ") + message_cursor_pos);
+            if (active_window == 2 && right_highlight == dynamic_num_commit_types) { // message field is at index dynamic_num_commit_types
+                wmove(right_bottom, 3 + dynamic_num_commit_types + 2, 2 + strlen("Commit Message: ") + message_cursor_pos);
                 curs_set(1); // Show cursor
             } else {
                 curs_set(0); // Hide cursor
@@ -136,7 +187,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
         // Delegate input handling to handle_commit_input if in COMMIT_SCREEN and active_window is 2
         if (current_screen == COMMIT_SCREEN && active_window == 2) {
             // Check for general character input and backspace first if message field is highlighted
-            if (right_highlight == num_commit_types_in_ui) { // message field is at index 5
+            if (right_highlight == dynamic_num_commit_types) { // message field is at index dynamic_num_commit_types
                 if ((ch >= 32 && ch <= 126) || ch == KEY_BACKSPACE || ch == 127) { // Printable ASCII or Backspace
                     if (ch >= 32 && ch <= 126) { // Printable ASCII
                         if (message_cursor_pos < sizeof(current_commit_message) - 1) {
@@ -157,7 +208,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
             }
 
             // Now, call handle_commit_input for other keys (Enter, ESC, navigation)
-            CommitInputResult commit_input_res = handle_commit_input(ch, &right_highlight, &commit_type_selected_idx, current_commit_message, &message_cursor_pos, num_commit_types_in_ui + 3, num_commit_types_in_ui);
+            CommitInputResult commit_input_res = handle_commit_input(ch, &right_highlight, &commit_type_selected_idx, current_commit_message, &message_cursor_pos, dynamic_num_commit_types + 3, dynamic_num_commit_types);
             if (commit_input_res == UI_STATE_CHANGE_EXIT_COMMIT) {
                 current_screen = MAIN_SCREEN;
                 active_window = 1; right_highlight = 1; // Highlight Commit Changes on return
@@ -166,7 +217,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                 if (commit_type_selected_idx != -1 && strlen(current_commit_message) > 0) {
                     FILE *fp_type = fopen("/tmp/gitscope_commit_type.tmp", "w");
                     if (fp_type) {
-                        fprintf(fp_type, "%s", commit_types_str[commit_type_selected_idx]);
+                        fprintf(fp_type, "%s", dynamic_commit_types[commit_type_selected_idx]);
                         fclose(fp_type);
                     }
                     FILE *fp_msg = fopen("/tmp/gitscope_commit_message.tmp", "w");
@@ -179,7 +230,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                     // Stay in commit screen, perhaps show an error or move to message input
                     // For now, reset highlight to first type if type not selected, or stay on Commit button if message empty
                     if (commit_type_selected_idx == -1) right_highlight = 0; // Highlight first type
-                    else if (strlen(current_commit_message) == 0) right_highlight = num_commit_types_in_ui; // Highlight message field
+                    else if (strlen(current_commit_message) == 0) right_highlight = dynamic_num_commit_types; // Highlight message field
                 }
             }
             // If handle_commit_input processed the input, continue to next loop iteration
@@ -405,13 +456,51 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                             }
                         } else if (right_highlight == 1) { // Commit Changes -> now Run Tests action
                             exit_code = 2; goto end_loop;
-                        } else if (right_highlight == 2) { // Run Tests -> now Commit Changes action
-                            current_screen = COMMIT_SCREEN;
-                            active_window = 2; // Focus on bottom panel for commit UI
-                            right_highlight = 0; // Highlight first commit type
-                            strcpy(current_commit_message, ""); // Clear message on entry
-                            commit_type_selected_idx = -1; // Reset selected type
-                            message_cursor_pos = 0; // Reset cursor
+                        } else if (right_highlight == 2) { // Commit Changes action
+                            // Clear right panels for input prompt
+                            werase(right_top); werase(right_bottom);
+                            wrefresh(right_top); wrefresh(right_bottom);
+
+                            // Create a temporary input window
+                            WINDOW *input_win = newwin(5, 60, height / 2 - 2, width / 2 - 30);
+                            box(input_win, 0, 0);
+                            mvwprintw(input_win, 1, 2, "Enter desired commit types (e.g., feat,fix,docs):");
+                            mvwprintw(input_win, 2, 2, "> ");
+                            wrefresh(input_win);
+
+                            echo(); // Turn on echo for user input
+                            curs_set(1); // Show cursor
+
+                            mvwgetnstr(input_win, 2, 4, user_commit_types_input, sizeof(user_commit_types_input) - 1);
+
+                            noecho(); // Turn off echo
+                            curs_set(0); // Hide cursor
+                            delwin(input_win); // Delete temporary window
+                            clear(); refresh(); // Clear screen and redraw main UI after input
+
+                            // Parse the input
+                            if (dynamic_commit_types) { // Free previous allocation if any
+                                free_string_array(dynamic_commit_types, dynamic_num_commit_types);
+                                dynamic_commit_types = NULL;
+                                dynamic_num_commit_types = 0;
+                            }
+                            dynamic_commit_types = split_string(user_commit_types_input, ",", &dynamic_num_commit_types);
+
+                            if (dynamic_num_commit_types == 0) {
+                                // User entered nothing or parsing failed
+                                // Stay on MAIN_SCREEN, or show an error
+                                current_screen = MAIN_SCREEN;
+                                active_window = 1; // Focus back on main right panel
+                                right_highlight = 2; // Keep highlight on "Commit Changes"
+                            } else {
+                                // Successfully parsed, proceed to COMMIT_SCREEN
+                                current_screen = COMMIT_SCREEN;
+                                active_window = 2; // Focus on bottom panel for commit UI
+                                right_highlight = 0; // Highlight first dynamic commit type
+                                strcpy(current_commit_message, ""); // Clear message on entry
+                                commit_type_selected_idx = -1; // Reset selected type
+                                message_cursor_pos = 0; // Reset cursor
+                            }
                         }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
                         if (right_highlight == 0) {
@@ -506,6 +595,7 @@ end_loop:
     free(lines);
     if (file_list) free_string_lines(file_list, file_list_count);
     if (file_diff) free_string_lines(file_diff, file_diff_count);
+    if (dynamic_commit_types) free_string_array(dynamic_commit_types, dynamic_num_commit_types); // Free dynamic commit types
     endwin();
     return exit_code;
 }
