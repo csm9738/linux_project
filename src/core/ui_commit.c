@@ -13,7 +13,7 @@ void print_commit_ui(WINDOW *win, int highlight_item, const char *current_messag
     if (highlight_item == 0) {
         wattron(win, A_REVERSE);
     }
-    // mvwprintw(win, 3, 3, "Types (comma-separated): %s", commit_types_input_buffer ? commit_types_input_buffer : "");
+    mvwprintw(win, 3, 3, "Types (comma-separated): %s", commit_types_input_buffer ? commit_types_input_buffer : "");
     if (highlight_item == 0) {
         wattroff(win, A_REVERSE);
     }

@@ -212,7 +212,7 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                 }
             }
             // Check for general character input and backspace first if message field is highlighted
-            if (right_highlight == dynamic_num_commit_types) { // message field is at index dynamic_num_commit_types
+            else if (right_highlight == dynamic_num_commit_types + 1) { // message field is at index dynamic_num_commit_types + 1
                 if ((ch >= 32 && ch <= 126) || ch == KEY_BACKSPACE || ch == 127) { // Printable ASCII or Backspace
                     if (ch >= 32 && ch <= 126) { // Printable ASCII
                         if (message_cursor_pos < sizeof(current_commit_message) - 1) {
@@ -507,15 +507,16 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                             right_highlight = 0; // Highlight the commit type input field
 
                             // Clear all commit-related states
-                            strcpy(user_commit_types_input, ""); // Clear the user input buffer
+                            memset(user_commit_types_input, 0, sizeof(user_commit_types_input)); // Clear the user input buffer
                             if (dynamic_commit_types) { // Free previous allocation if any
                                 free_string_array(dynamic_commit_types, dynamic_num_commit_types);
                                 dynamic_commit_types = NULL;
                                 dynamic_num_commit_types = 0;
                             }
-                            strcpy(current_commit_message, ""); // Clear message on entry
+                            memset(current_commit_message, 0, sizeof(current_commit_message)); // Clear message on entry
                             commit_type_selected_idx = -1; // Reset selected type
                             message_cursor_pos = 0; // Reset cursor
+                            commit_type_input_cursor_pos = 0; // Reset cursor for types input
                         }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
                         if (right_highlight == 0) {
