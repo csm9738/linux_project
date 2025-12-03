@@ -535,16 +535,32 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                             right_highlight = 0; // Highlight the commit type input field
 
                             // Clear all commit-related states
-                            memset(user_commit_types_input, 0, sizeof(user_commit_types_input)); // Clear the user input buffer
+                            // Repopulate user_commit_types_input from env var or default
+                            const char* env_commit_types = getenv("GITSCOPE_COMMIT_TYPES");
+                            if (env_commit_types != NULL) {
+                                strncpy(user_commit_types_input, env_commit_types, sizeof(user_commit_types_input) - 1);
+                                user_commit_types_input[sizeof(user_commit_types_input) - 1] = '\0';
+                            } else {
+                                // Default commit types if environment variable is not set
+                                strncpy(user_commit_types_input, "feat,fix,docs,refactor,test,style,chore", sizeof(user_commit_types_input) - 1);
+                                user_commit_types_input[sizeof(user_commit_types_input) - 1] = '\0';
+                            }
+                            commit_type_input_cursor_pos = strlen(user_commit_types_input);
+
                             if (dynamic_commit_types) { // Free previous allocation if any
                                 free_string_array(dynamic_commit_types, dynamic_num_commit_types);
                                 dynamic_commit_types = NULL;
                                 dynamic_num_commit_types = 0;
                             }
+                            // Initial parsing of default/environment commit types
+                            if (strlen(user_commit_types_input) > 0) {
+                                dynamic_commit_types = split_string(user_commit_types_input, ",", &dynamic_num_commit_types);
+                            }
+                            
                             memset(current_commit_message, 0, sizeof(current_commit_message)); // Clear message on entry
                             commit_type_selected_idx = -1; // Reset selected type
                             message_cursor_pos = 0; // Reset cursor
-                            commit_type_input_cursor_pos = 0; // Reset cursor for types input
+                            // commit_type_input_cursor_pos is already set above
                         }
                     } else if (current_screen == CUSTOMIZE_SCREEN) {
                         if (right_highlight == 0) {
