@@ -110,6 +110,15 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     char **lines = (char **)malloc(sizeof(char*) * num_lines);
     for (int i = 0; i < num_lines; ++i) lines[i] = loglines[i].line_content;
     int top_line = 0, highlight_line = 0; int right_highlight = 0; int active_window = 0; int ch; int exit_code = 0; ScreenState current_screen = MAIN_SCREEN;
+
+    // Declare commit-related variables
+    char current_commit_message[1024];
+    int commit_type_selected_idx;
+    int message_cursor_pos;
+    char user_commit_types_input[256];
+    int commit_type_input_cursor_pos;
+    char **dynamic_commit_types;
+    int dynamic_num_commit_types;
     char current_line_style[20] = "ascii";
     const char* env_line_style = getenv("LINE_STYLE");
     if (env_line_style != NULL) { strncpy(current_line_style, env_line_style, sizeof(current_line_style) - 1); current_line_style[sizeof(current_line_style) - 1] = '\0'; }
@@ -118,15 +127,30 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
     char **file_diff = NULL; int file_diff_count = 0;
     int preview_mode = 0;
     char header_buf[1024]; header_buf[0] = '\0';
-    char current_commit_message[1024] = ""; // Declare and initialize commit message buffer
-    int commit_type_selected_idx = -1; // -1 initially, 0-4 for types
-    int message_cursor_pos = 0; // For editing the message
-    int commit_type_input_cursor_pos = 0; // For editing the commit types input field
-    
-    // Variables for dynamic commit type handling
-    char user_commit_types_input[256] = ""; // Buffer to store raw user input
-    char **dynamic_commit_types = NULL; // Array of strings for parsed types
-    int dynamic_num_commit_types = 0; // Count of parsed types
+
+    // Initialize commit-related variables
+    memset(current_commit_message, 0, sizeof(current_commit_message));
+    commit_type_selected_idx = -1;
+    message_cursor_pos = 0;
+
+    const char* env_commit_types = getenv("GITSCOPE_COMMIT_TYPES");
+    if (env_commit_types != NULL) {
+        strncpy(user_commit_types_input, env_commit_types, sizeof(user_commit_types_input) - 1);
+        user_commit_types_input[sizeof(user_commit_types_input) - 1] = '\0';
+    } else {
+        // Default commit types if environment variable is not set
+        strncpy(user_commit_types_input, "feat,fix,docs,refactor,test", sizeof(user_commit_types_input) - 1);
+        user_commit_types_input[sizeof(user_commit_types_input) - 1] = '\0';
+    }
+    commit_type_input_cursor_pos = strlen(user_commit_types_input);
+
+    // Initial parsing of default/environment commit types
+    dynamic_commit_types = NULL; // Ensure it's NULL before first split_string call
+    dynamic_num_commit_types = 0;
+    if (strlen(user_commit_types_input) > 0) {
+        dynamic_commit_types = split_string(user_commit_types_input, ",", &dynamic_num_commit_types);
+    }
+
 
     file_list = get_commit_changed_files(project_root, loglines[highlight_line].hash, &file_list_count);
     build_header(header_buf, sizeof(header_buf), &loglines[highlight_line]);
