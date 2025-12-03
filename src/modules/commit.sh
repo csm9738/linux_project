@@ -64,23 +64,25 @@ if [ -n "$COMMIT_TYPE_ARG" ] && [ -n "$COMMIT_MESSAGE_ARG" ]; then
 fi
 
 # Fallback to interactive mode if no valid arguments or insufficient arguments
-echo "${COLOR_CYAN}Select commit type:${COLOR_RESET}"
-echo "${COLOR_CYAN}  1) feat: A new feature${COLOR_RESET}"
-echo "${COLOR_CYAN}  2) fix: A bug fix${COLOR_RESET}"
-echo "${COLOR_CYAN}  3) docs: Documentation only changes${COLOR_RESET}"
-echo "${COLOR_CYAN}  4) refactor: A code change that neither fixes a bug nor adds a feature${COLOR_RESET}"
-echo "${COLOR_CYAN}  5) test: Adding missing tests or correcting existing tests${COLOR_RESET}"
 
-read -p "$(echo -e "${COLOR_YELLOW}Enter number (1-5): ${COLOR_RESET}")" type_num
+read -p "$(echo -e "${COLOR_YELLOW}Enter desired commit types (comma-separated, e.g., feat,fix): ${COLOR_RESET}")" user_types_input
 
-case $type_num in
-    1) commit_type="feat";;
-    2) commit_type="fix";;
-    3) commit_type="docs";;
-    4) commit_type="refactor";;
-    5) commit_type="test";;
-    *) echo "${COLOR_RED}Invalid selection. Aborting commit.${COLOR_RESET}"; exit 1;;
-esac
+# Basic validation for user_types_input
+if [ -z "$user_types_input" ]; then
+    echo "${COLOR_RED}Error: No commit types entered. Aborting commit.${COLOR_RESET}"
+    exit 1
+fi
+
+# Display user-specified types and prompt for final selection
+echo "${COLOR_CYAN}Select one of your specified commit types:${COLOR_RESET}"
+select selected_type in $(echo "$user_types_input" | tr ',' ' '); do
+    if [ -n "$selected_type" ]; then
+        commit_type="$selected_type"
+        break
+    else
+        echo "${COLOR_RED}Invalid selection. Please choose from your provided types.${COLOR_RESET}"
+    fi
+done
 
 read -p "$(echo -e "${COLOR_YELLOW}Enter commit message: ${COLOR_RESET}")" commit_message
 

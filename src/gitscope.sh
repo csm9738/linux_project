@@ -13,7 +13,6 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$PROJECT_ROOT/src/modules/utils.sh"
 
 show_logo
-shift
 
 case $1 in
     customize)
