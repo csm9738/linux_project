@@ -379,9 +379,10 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                         if (right_highlight > 0) right_highlight--;
                     }
                 } else if (active_window == 2) { // Right bottom panel (preview or commit UI)
-                    if (current_screen == COMMIT_SCREEN) {
-                        if (right_highlight > 0) right_highlight--;
-                    } else if (preview_mode == 0) {
+                    // if (current_screen == COMMIT_SCREEN) {
+                    //     if (right_highlight > 0) right_highlight--; // Handled by handle_commit_input
+                    // }
+                    if (preview_mode == 0) {
                         if (preview_selected > 0) { preview_selected--; if (preview_selected < preview_top) preview_top = preview_selected; }
                     } else {
                         if (preview_top > 0) preview_top--;
@@ -406,11 +407,12 @@ int start_ui(const char* git_log_filepath, const char* project_root) {
                         if (right_highlight < max_menu -1) right_highlight++;
                     }
                 } else if (active_window == 2) { // Right bottom panel (preview or commit UI)
-                    if (current_screen == COMMIT_SCREEN) {
-                        // 5 commit types (0-4), 1 message field (5), 1 Commit button (6), 1 Cancel button (7)
-                        // Max highlight index is 7
-                        if (right_highlight < 7) right_highlight++;
-                    } else if (preview_mode == 0) {
+                    // if (current_screen == COMMIT_SCREEN) {
+                    //     // 5 commit types (0-4), 1 message field (5), 1 Commit button (6), 1 Cancel button (7)
+                    //     // Max highlight index is 7
+                    //     if (right_highlight < 7) right_highlight++; // Handled by handle_commit_input
+                    // }
+                    if (preview_mode == 0) {
                         if (preview_selected < file_list_count - 1) { preview_selected++; int content_h = height - right_top_h - 2; if (preview_selected >= preview_top + content_h) preview_top = preview_selected - content_h + 1; }
                     } else {
                         int content_h = height - right_top_h - 2; if (preview_top + content_h < file_diff_count) preview_top++;

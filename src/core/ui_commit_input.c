@@ -19,7 +19,7 @@ int handle_commit_input(int ch, int *highlight_item, int *commit_type_selected_i
             return UI_STATE_NO_CHANGE;
         case KEY_DOWN: case 'j':
             // max_items_in_commit_ui is now num_commit_types_in_ui + 4 (input_field + types + message + commit + cancel)
-            if (*highlight_item < max_items_in_commit_ui - 1) { 
+            if (*highlight_item < num_commit_types_in_ui + 3) { // Allow navigation up to the 'Cancel' button (index num_commit_types_in_ui + 3)
                 int old_highlight_item = *highlight_item;
                 (*highlight_item)++;
                 if (*highlight_item == 0 && old_highlight_item != 0) { // Transitioned to types input field
